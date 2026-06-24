@@ -24,7 +24,7 @@ Both interfaces must return structured, informative responses for every operatio
 - The mode used (identify or rename).
 - The TMDB match used (title, year, ID).
 - Confidence score of the match.
-- In Rename mode: a list of any non-media files that were left untouched, so the user is aware they were not processed.
+
 
 ### Error responses must include
 

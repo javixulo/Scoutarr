@@ -57,7 +57,9 @@ The disambiguation behaviour differs between interfaces:
 - The user can cancel the operation at any point.
 - If the user cancels, the operation is aborted and no files are modified.
 
-**REST API** — cannot support interactive disambiguation. When no candidate exceeds the confidence threshold, the API returns the top 10 candidates ranked by confidence score, along with their TMDB metadata (title, year, overview, original language), so the caller can present them to the user and retry the request with additional parameters to narrow the match.
+**REST API** — cannot support interactive disambiguation. When no candidate exceeds the confidence threshold, the API returns the top 10 candidates ranked by confidence score, along with their TMDB metadata (title, year, overview, original language), so the caller can present them to the user and retry.
+
+To select a specific candidate from a previous response, the caller repeats the same request and includes the `candidateIndex` parameter — a 1-based index into the candidate list returned by the previous call. For example, if the previous response returned 7 candidates and the user selects the third one, the caller retries with `candidateIndex: 3`. When `candidateIndex` is provided, the confidence threshold is bypassed and that candidate is used directly.
 
 ---
 
@@ -67,6 +69,7 @@ The caller may provide the following optional parameters at request time to assi
 - **Year** — the release year of the movie or series.
 - **Original language** — the original language of the content (e.g. `en`, `es`, `ja`).
 - **Genre** — the genre of the content (e.g. drama, animation, thriller).
+- **candidateIndex** — 1-based index of a candidate from a previous disambiguation response. When provided, skips search and scoring and uses the selected candidate directly.
 
 ---
 

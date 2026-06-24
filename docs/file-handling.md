@@ -35,20 +35,18 @@ The Rename mode depends on Identify — if identification fails, no renaming occ
 - Input: single file or folder.
 - A folder is always treated as a TV show.
 - A single file requires the caller to specify whether it is a movie or a TV show episode.
-- Video file and all auxiliary files are renamed together.
+- Video file and all subtitle files are renamed together.
+- Subtitle files are renamed to match the video filename exactly, with the language code appended before the extension when the language is known (e.g. `Series Name - S01E01 - Episode Title.en.srt`). If the language is unknown, the subtitle is renamed to match the video filename without a language suffix (e.g. `Series Name - S01E01 - Episode Title.srt`). This ensures compatibility with common media players that rely on filename matching to auto-load subtitles.
+- Files that are not recognised as video or subtitle files (e.g. `.txt`, `.pdf`) are never touched, regardless of where they are in the folder structure.
 
-Recognised file extensions:
+### Recognised file extensions
 
 | Type | Extensions |
 |---|---|
-| **Video** | `.mkv`, `.mp4`, `.avi`, `.mov`, `.wmv`, `.m4v` |
-| **Subtitles** | `.srt`, `.ass`, `.ssa`, `.sub`, `.vtt` |
-| **Metadata** | `.nfo` |
-| **Images** | `.jpg`, `.jpeg`, `.png`, `.tbn` |
+| Video | `.mkv`, `.mp4`, `.avi`, `.mov`, `.m4v`, `.ts`, `.m2ts` |
+| Subtitle | `.srt`, `.ass`, `.ssa`, `.sub`, `.idx` |
 
-Any file not matching one of the above extensions is considered non-media and is never touched.
-- Subtitle files are renamed to match the video filename exactly, with the language code appended before the extension when the language is known (e.g. `Series Name - S01E01 - Episode Title.en.srt`). If the language is unknown, the subtitle is renamed to match the video filename without a language suffix (e.g. `Series Name - S01E01 - Episode Title.srt`). This ensures compatibility with common media players that rely on filename matching to auto-load subtitles.
-- Files that are not recognised as media or auxiliary files (e.g. `.txt`, `.pdf`) are never touched, regardless of where they are in the folder structure.
+Any file with an extension not in this list is considered a non-media file and is never touched.
 
 ---
 
@@ -84,7 +82,7 @@ The user must be asked whether to merge the two folders or abort the operation.
 - If abort is chosen: no changes are made and an error is returned.
 
 **A non-media file exists at any level:**
-The file is left in place and included in the Rename mode response so the user is aware it was not processed.
+The file is left in place untouched.
 
 ---
 
