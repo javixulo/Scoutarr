@@ -199,3 +199,94 @@ Cover the full system running inside Docker:
 - Logs are written to `/config/logs/scoutarr.log` inside the mounted volume.
 
 E2E tests use a real TMDB API key (from environment) and a temporary directory with test media files. They run against the built Docker image, not the source code directly.
+
+---
+
+## 7. State after UC-01 — What exists for UC-02 to build on
+
+This section summarises what is implemented and available after UC-01 (rename a single movie file) is complete. UC-02 (rename a single TV show episode) should extend or reuse these pieces rather than rebuilding them.
+
+---
+
+### Scoutarr.Core — interfaces
+
+| Interface | Purpose | Reuse in UC-02 |
+|---|---|---|
+| `IMovieFilenameParser` | Parses dirty movie filename → `ParsedMovieFilename` | Not reused — TV needs `ITvFilenameParser` |
+| `IMovieSearchService` | Searches TMDB for movies, scores candidates | Pattern to follow for `ITvShowSearchService` |
+| `IMovieFilenameFormatter` | Formats output filename from template | Pattern to follow for `ITvFilenameFormatter` |
+| `IMovieIdentificationService` | Orchestrates parse → search → format | Pattern to follow for `ITvIdentificationService` |
+| `ITmdbClient` | TMDB HTTP client | **Reused and extended** — add `SearchTvShowAsync` and `GetTvShowDetailsAsync` |
+
+---
+
+### Scoutarr.Core — types
+
+| Type | Description | Reuse in UC-02 |
+|---|---|---|
+| `ParsedMovieFilename` | Title, year, resolution, release group | New `ParsedTvFilename` adds season, episode number |
+| `MovieCandidate` | TmdbId, title, year, overview, originalLanguage, confidence | New `TvShowCandidate` — same shape, different TMDB source |
+| `MovieSearchResult` | Ordered list of `MovieCandidate` | New `TvShowSearchResult` — same pattern |
+| `MovieFormatterInput` | Title, year, resolution, edition, template | New `TvFormatterInput` — adds series, season, episode, episodeTitle |
+| `MovieIdentificationRequest` | Filename + optional hints + tmdbId | New `TvIdentificationRequest` — same optional hints, adds episode hints |
+| `MovieIdentificationSuccess` | originalFilename, suggestedFilename, match | New `TvIdentificationSuccess` — same shape |
+| `MovieDisambiguationNeeded` | Candidates list | New `TvDisambiguationNeeded` — same pattern |
+| `MovieIdentificationError` | Reason + detail | Shared domain error model — **reused directly** |
+
+---
+
+### Scoutarr.Core — confidence scoring
+
+The confidence scoring formula (60% title similarity / 30% year match / 10% popularity) is implemented in `MovieSearchService`. UC-02 should apply the same formula in `TvShowSearchService` — extract the scoring logic into a shared `ConfidenceScorer` utility class to avoid duplication.
+
+---
+
+### Scoutarr.Core — ITmdbClient
+
+After UC-01, `ITmdbClient` has:
+- `SearchMovieAsync(string title, int? year, ...)` → list of movie candidates
+- `GetMovieDetailsAsync(int movieId)` → enriched movie details (director, cast, collection, genres)
+
+UC-02 adds:
+- `SearchTvShowAsync(string title, int? year, ...)` → list of TV show candidates
+- `GetTvShowDetailsAsync(int tvId)` → enriched TV show details (creator, cast, network, seasons, status)
+
+The real implementation (`TmdbClient`) is extended. Tests continue to mock `ITmdbClient`.
+
+---
+
+### Scoutarr.Api — REST endpoints
+
+After UC-01:
+- `POST /identify/movie` — identify movie, returns success or disambiguation (422)
+- `POST /rename/movie` — rename movie on disk
+
+UC-02 adds:
+- `POST /identify/episode` — same pattern, TV episode
+- `POST /rename/episode` — same pattern, TV episode
+
+The domain error → HTTP status code mapping is shared. UC-02 reuses it directly.
+
+---
+
+### Scoutarr.Mcp — MCP tools
+
+After UC-01:
+- `identify_movie` — returns success or enriched disambiguation result
+- `rename_movie` — renames on disk
+
+UC-02 adds:
+- `identify_episode` — same pattern, TV episode; enriched with creator, cast, network, seasons
+- `rename_episode` — same pattern
+
+The MCP server system prompt is extended to cover TV show disambiguation behaviour.
+
+---
+
+### What UC-02 must build from scratch
+
+- `ITvFilenameParser` / `TvFilenameParser` — extracts series title, season, episode number using heuristics (SxEy pattern, compact numeric with TMDB validation)
+- `ITvShowSearchService` / `TvShowSearchService` — searches TMDB for TV shows, scores candidates
+- `ITvFilenameFormatter` / `TvFilenameFormatter` — formats episode output filename
+- `ITvIdentificationService` / `TvIdentificationService` — orchestrates the TV episode identification flow
+- REST controllers and MCP tools for TV episodes
