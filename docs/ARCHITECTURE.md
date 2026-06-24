@@ -237,7 +237,7 @@ This section summarises what is implemented and available after UC-01 (rename a 
 
 ### Scoutarr.Core — confidence scoring
 
-The confidence scoring formula (60% title similarity / 30% year match / 10% popularity) is implemented in `MovieSearchService`. UC-02 should apply the same formula in `TvShowSearchService` — extract the scoring logic into a shared `ConfidenceScorer` utility class to avoid duplication.
+The confidence scoring formula (60% title similarity / 30% year match / 10% popularity) is implemented in a standalone `ConfidenceScorer` class in `Scoutarr.Core`. `MovieSearchService` calls it. UC-02's `TvShowSearchService` reuses `ConfidenceScorer` directly — no duplication, no refactor needed.
 
 ---
 

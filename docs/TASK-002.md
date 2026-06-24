@@ -79,6 +79,7 @@ The final score is clamped to [0.0, 1.0].
 - Implement `IMovieSearchService` in `Scoutarr.Core` — this is what takes a `ParsedMovieFilename` and returns `MovieSearchResult`.
 - Title normalisation: lowercase, strip punctuation, collapse whitespace.
 - Popularity normalisation: use `Math.Log` or a similar dampening function — raw popularity scores from TMDB vary wildly (0.6 to 5000+) and must not dominate the score.
+- **Implement the scoring logic in a standalone `ConfidenceScorer` class in `Scoutarr.Core`, not inline in `MovieSearchService`.** `MovieSearchService` calls `ConfidenceScorer` — it does not own the formula. This allows UC-02's `TvShowSearchService` to reuse `ConfidenceScorer` directly without duplication.
 
 ---
 
