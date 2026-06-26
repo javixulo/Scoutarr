@@ -33,7 +33,6 @@ Success response shape:
 }
 ```
 
-
 The `filename` field contains the suggested filename in both modes. In `identify` mode it is a suggestion only — no files are modified. In `rename` mode it is the actual new name on disk.
 
 Error response shape (RFC 9457):
@@ -98,10 +97,20 @@ This follows the same convention used by Radarr, Sonarr, and other *arr applicat
 
 ### Volume structure
 
+Scoutarr uses five mount points inside the container:
+
 ```
-/config     ← configuration and logs (mounted from host)
-/media      ← media files to be renamed (mounted from host)
+/config          ← configuration and logs (mounted from host)
+/input/movies    ← source movie files to be identified or renamed (mounted from host)
+/input/tv        ← source TV files and folders to be identified or renamed (mounted from host)
+/media/movies    ← destination for renamed movies, following Jellyfin convention (mounted from host)
+/media/tv        ← destination for renamed TV episodes and series, following Jellyfin convention (mounted from host)
 ```
+
+- `/input/movies` and `/input/tv` are where the user places dirty files or folders to be processed. They can point to a downloads directory or any staging area on the host.
+- `/media/movies` and `/media/tv` are the Jellyfin library roots. Scoutarr moves renamed files here.
+- In **Identify mode**, only `/input` is read. The destination volumes are never touched.
+- In **Rename mode**, files are moved from `/input/movies` or `/input/tv` to the appropriate destination volume.
 
 ### docker-compose.yml example
 
@@ -118,7 +127,10 @@ services:
       - NAMING_FORMAT_EPISODE={series} - S{season:00}E{episode:00} - {title}
     volumes:
       - ./config:/config
-      - /your/media:/media
+      - /your/downloads/movies:/input/movies
+      - /your/downloads/tv:/input/tv
+      - /your/jellyfin/movies:/media/movies
+      - /your/jellyfin/tv:/media/tv
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -212,11 +224,11 @@ This section summarises what is implemented and available after UC-01 (rename a 
 
 | Interface | Purpose | Reuse in UC-02 |
 |---|---|---|
-| `IMovieFilenameParser` | Parses dirty movie filename → `ParsedMovieFilename` | Not reused — TV needs `ITvFilenameParser` |
+| `IMovieFilenameParser` | Parses dirty movie filename → `ParsedMovieFilename` | Not reused — TV needs `ITvSeriesTitleParser` |
 | `IMovieSearchService` | Searches TMDB for movies, scores candidates | Pattern to follow for `ITvShowSearchService` |
 | `IMovieFilenameFormatter` | Formats output filename from template | Pattern to follow for `ITvFilenameFormatter` |
-| `IMovieIdentificationService` | Orchestrates parse → search → format | Pattern to follow for `ITvIdentificationService` |
-| `ITmdbClient` | TMDB HTTP client | **Reused and extended** — add `SearchTvShowAsync` and `GetTvShowDetailsAsync` |
+| `IMovieIdentificationService` | Orchestrates parse → search → format | Pattern to follow for `ITvShowIdentificationService` |
+| `ITmdbClient` | TMDB HTTP client | **Reused and extended** — add `SearchTvShowAsync`, `GetTvShowDetailsAsync`, and `GetEpisodeDetailsAsync` |
 
 ---
 
@@ -224,20 +236,20 @@ This section summarises what is implemented and available after UC-01 (rename a 
 
 | Type | Description | Reuse in UC-02 |
 |---|---|---|
-| `ParsedMovieFilename` | Title, year, resolution, release group | New `ParsedTvFilename` adds season, episode number |
+| `ParsedMovieFilename` | Title, year, resolution, release group | New `ParsedTvSeriesTitle` — same shape for series title extraction |
 | `MovieCandidate` | TmdbId, title, year, overview, originalLanguage, confidence | New `TvShowCandidate` — same shape, different TMDB source |
 | `MovieSearchResult` | Ordered list of `MovieCandidate` | New `TvShowSearchResult` — same pattern |
 | `MovieFormatterInput` | Title, year, resolution, edition, template | New `TvFormatterInput` — adds series, season, episode, episodeTitle |
-| `MovieIdentificationRequest` | Filename + optional hints + tmdbId | New `TvIdentificationRequest` — same optional hints, adds episode hints |
-| `MovieIdentificationSuccess` | originalFilename, suggestedFilename, match | New `TvIdentificationSuccess` — same shape |
-| `MovieDisambiguationNeeded` | Candidates list | New `TvDisambiguationNeeded` — same pattern |
+| `MovieIdentificationRequest` | Filename + optional hints + tmdbId | New `TvShowIdentificationRequest` — same optional hints |
+| `MovieIdentificationSuccess` | originalFilename, suggestedFilename, match | New `TvShowIdentificationSuccess` — same shape |
+| `MovieDisambiguationNeeded` | Candidates list | New `TvShowDisambiguationNeeded` — same pattern |
 | `MovieIdentificationError` | Reason + detail | Shared domain error model — **reused directly** |
 
 ---
 
 ### Scoutarr.Core — confidence scoring
 
-The confidence scoring formula (60% title similarity / 30% year match / 10% popularity) is implemented in a standalone `ConfidenceScorer` class in `Scoutarr.Core`. `MovieSearchService` calls it. UC-02's `TvShowSearchService` reuses `ConfidenceScorer` directly — no duplication, no refactor needed.
+The confidence scoring formula (60% title similarity / 30% year match / 10% popularity) is implemented in `MovieSearchService` and extracted into a shared `ConfidenceScorer` utility class (added as part of UC-01 completion). UC-02 reuses `ConfidenceScorer` directly in `TvShowSearchService`.
 
 ---
 
@@ -249,7 +261,8 @@ After UC-01, `ITmdbClient` has:
 
 UC-02 adds:
 - `SearchTvShowAsync(string title, int? year, ...)` → list of TV show candidates
-- `GetTvShowDetailsAsync(int tvId)` → enriched TV show details (creator, cast, network, seasons, status)
+- `GetTvShowDetailsAsync(int tvId)` → TV show details including season/episode structure and series status
+- `GetEpisodeDetailsAsync(int tvId, int season, int episode)` → episode title
 
 The real implementation (`TmdbClient`) is extended. Tests continue to mock `ITmdbClient`.
 
@@ -262,8 +275,9 @@ After UC-01:
 - `POST /rename/movie` — rename movie on disk
 
 UC-02 adds:
-- `POST /identify/episode` — same pattern, TV episode
-- `POST /rename/episode` — same pattern, TV episode
+- `POST /identify/series` — identify TV series, returns success or disambiguation (422)
+- `POST /identify/episode` — identify episode given confirmed series tmdbId
+- `POST /rename/episode` — move episode to correct destination in `/media/tv`
 
 The domain error → HTTP status code mapping is shared. UC-02 reuses it directly.
 
@@ -276,17 +290,133 @@ After UC-01:
 - `rename_movie` — renames on disk
 
 UC-02 adds:
-- `identify_episode` — same pattern, TV episode; enriched with creator, cast, network, seasons
-- `rename_episode` — same pattern
+- `identify_series` — same pattern, TV series; enriched with creator, cast, network, seasons with episode counts, and series status
+- `identify_episode` — given confirmed series tmdbId, identifies the episode
+- `rename_episode` — moves episode to correct destination in `/media/tv`
 
-The MCP server system prompt is extended to cover TV show disambiguation behaviour.
+The MCP server system prompt is extended to cover TV show and episode disambiguation behaviour.
 
 ---
 
 ### What UC-02 must build from scratch
 
-- `ITvFilenameParser` / `TvFilenameParser` — extracts series title, season, episode number using heuristics (SxEy pattern, compact numeric with TMDB validation)
-- `ITvShowSearchService` / `TvShowSearchService` — searches TMDB for TV shows, scores candidates
+- `ITvSeriesTitleParser` / `TvSeriesTitleParser` — extracts series title (and optional year, resolution) from dirty filename
+- `IEpisodeHeuristic` — common interface for episode number heuristics chain
+- `ITvEpisodeNumberParser` / `TvEpisodeNumberParser` — heuristic chain; initially only Heuristic 1 (SxEy pattern)
+- `ITvShowSearchService` / `TvShowSearchService` — searches TMDB for TV shows, scores candidates using `ConfidenceScorer`
+- `ITvShowIdentificationService` / `TvShowIdentificationService` — orchestrates series identification flow
+- `ITvEpisodeLookupService` / `TvEpisodeLookupService` — retrieves episode title from TMDB given confirmed series and episode number
 - `ITvFilenameFormatter` / `TvFilenameFormatter` — formats episode output filename
-- `ITvIdentificationService` / `TvIdentificationService` — orchestrates the TV episode identification flow
-- REST controllers and MCP tools for TV episodes
+- `ITvEpisodeMoveService` / `TvEpisodeMoveService` — moves episode and subtitles to correct destination, creates folder structure, cleans up empty directories
+- REST controllers and MCP tools for TV series and episode operations
+
+---
+
+## 8. State after UC-02 — What exists for UC-03 to build on
+
+This section summarises what is implemented and available after UC-02 (rename a single TV show episode) is complete. UC-03 (rename all episodes in a folder) should extend or reuse these pieces rather than rebuilding them.
+
+---
+
+### Scoutarr.Core — interfaces
+
+| Interface | Purpose | Reuse in UC-03 |
+|---|---|---|
+| `IMovieFilenameParser` | Parses dirty movie filename | Not relevant for UC-03 |
+| `IMovieIdentificationService` | Orchestrates movie identification | Not relevant for UC-03 |
+| `ITvSeriesTitleParser` | Extracts series title from dirty filename | **Reused directly** |
+| `IEpisodeHeuristic` | Common interface for episode number heuristics | **Reused directly** — UC-03 processes many files using the same chain |
+| `ITvEpisodeNumberParser` | Heuristic chain for season/episode extraction | **Reused directly** |
+| `ITvShowSearchService` | Searches TMDB for TV shows, scores candidates | **Reused directly** |
+| `ITvShowIdentificationService` | Orchestrates series identification flow | **Reused directly** — series is identified once for the whole folder |
+| `ITvEpisodeLookupService` | Retrieves episode title from TMDB | **Reused directly** — called once per episode |
+| `ITvFilenameFormatter` | Formats episode output filename | **Reused directly** |
+| `ITvEpisodeMoveService` | Moves episode and subtitles to destination | **Reused directly** — called once per episode |
+| `ITmdbClient` | TMDB HTTP client | **Reused** — UC-03 may extend with batch or season-level calls if needed |
+| `ConfidenceScorer` | Shared confidence scoring utility | **Reused directly** |
+
+---
+
+### Scoutarr.Core — types
+
+| Type | Description | Reuse in UC-03 |
+|---|---|---|
+| `ParsedTvSeriesTitle` | Series title, optional year and resolution | **Reused directly** |
+| `ParsedEpisodeNumber` | Season and episode number | **Reused directly** |
+| `TvShowCandidate` | TMDB series candidate with confidence score | **Reused directly** |
+| `TvShowIdentificationSuccess` | Confirmed series match | **Reused directly** |
+| `TvShowDisambiguationNeeded` | Candidate list for disambiguation | **Reused directly** |
+| `TvEpisodeLookupSuccess` | Confirmed episode with title | **Reused directly** |
+| `TvFormatterInput` | Input for episode filename formatter | **Reused directly** |
+| `TvEpisodeMoveSuccess` | Move result including destination path and subtitles | **Reused directly** |
+| `TvShowDetails` | Season/episode structure from TMDB | **Reused directly** |
+| `TvShowEnrichment` | Creator, cast, network, genres, status from TMDB | **Reused directly** |
+| `SubtitleMove` | Source and destination of a moved subtitle file | **Reused directly** |
+| Shared domain error model | Reason + detail | **Reused directly** |
+
+---
+
+### Scoutarr.Core — ITmdbClient
+
+After UC-02, `ITmdbClient` has:
+- `SearchMovieAsync` → list of movie candidates
+- `GetMovieDetailsAsync` → enriched movie details
+- `SearchTvShowAsync` → list of TV show candidates
+- `GetTvShowDetailsAsync` → season/episode structure
+- `GetTvShowEnrichmentAsync` → creator, cast, network, genres, status
+- `GetEpisodeDetailsAsync` → episode title
+
+UC-03 may add:
+- Season-level episode list fetching if bulk lookup is needed for performance
+
+---
+
+### Scoutarr.Core — filesystem
+
+`IFileSystem` abstraction is in place. `ITvEpisodeMoveService` handles:
+- Creating series and season folder structure
+- Moving video and subtitle files with rollback on failure
+- Cleaning up empty source directories
+
+UC-03 reuses `ITvEpisodeMoveService` directly for each episode in the folder. UC-03 adds:
+- Series metadata file write (`{Series Name} ({Year}).json`) to the series root folder after a successful pass
+- Folder merge logic when a series folder with the target name already exists
+
+---
+
+### Scoutarr.Api — REST endpoints
+
+After UC-02:
+- `POST /identify/movie` — identify movie
+- `POST /rename/movie` — rename movie on disk
+- `POST /identify/series` — identify TV series, returns success or disambiguation
+- `POST /identify/episode` — identify episode given confirmed series `tvId`
+- `POST /rename/episode` — move episode to `/media/tv` (requires confirmed `tvId`)
+
+UC-03 adds:
+- `POST /identify/folder` — identify series from a folder path
+- `POST /rename/folder` — rename all episodes in a folder
+
+---
+
+### Scoutarr.Mcp — MCP tools
+
+After UC-02:
+- `identify_movie`, `rename_movie`
+- `identify_series` — with enrichment (creator, cast, network, seasons, status)
+- `identify_episode` — given confirmed series `tvId`
+- `rename_episode` — moves to `/media/tv`, returns destination path and moved subtitles
+
+UC-03 adds:
+- `identify_folder` — identify series from a folder
+- `rename_folder` — rename all episodes in a folder, write metadata file
+
+---
+
+### What UC-03 must build from scratch
+
+- Series metadata file writer — writes `{Series Name} ({Year}).json` to the series root folder after a successful folder rename
+- Folder scanner — discovers all video files in a folder, grouped by season
+- Folder rename orchestrator — identifies the series once, then processes each episode using existing UC-02 services
+- Folder merge logic — handles the case where a series folder with the target name already exists
+- REST controllers and MCP tools for folder operations
