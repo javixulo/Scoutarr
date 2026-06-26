@@ -1,7 +1,7 @@
 # Scoutarr – Backlog
 
 > Maintained by Nick Fury. Updated at the end of each development cycle.
-> Task files live under `docs/tasks/` as `TASK-XXX.md` (UC1) or `UC2-TASK-XXX.md` (UC2 onwards).
+> Task files live under `docs/tasks/` as `UC1-TASK-XXX.md`, `UC2-TASK-XXX.md`, etc.
 
 ---
 
@@ -24,12 +24,12 @@
 
 | Task     | Title                                    | Status |
 | -------- | ---------------------------------------- | ------ |
-| [TASK-001](tasks/TASK-001.md) | Movie filename parser                    | 🟦      |
-| [TASK-002](tasks/TASK-002.md) | TMDB movie search and confidence scoring | 🟦      |
-| [TASK-003](tasks/TASK-003.md) | Output filename formatter (movie)        | 🟦      |
-| [TASK-004](tasks/TASK-004.md) | Core orchestration — identify movie      | 🟦      |
-| [TASK-005](tasks/TASK-005.md) | REST API — identify and rename movie     | 🟦      |
-| [TASK-006](tasks/TASK-006.md) | MCP — identify and rename movie          | 🟦      |
+| [UC1-TASK-001](tasks/UC1-TASK-001.md) | Movie filename parser                    | 🟦      |
+| [UC1-TASK-002](tasks/UC1-TASK-002.md) | TMDB movie search and confidence scoring | 🟦      |
+| [UC1-TASK-003](tasks/UC1-TASK-003.md) | Output filename formatter (movie)        | 🟦      |
+| [UC1-TASK-004](tasks/UC1-TASK-004.md) | Core orchestration — identify movie      | 🟦      |
+| [UC1-TASK-005](tasks/UC1-TASK-005.md) | REST API — identify and rename movie     | 🟦      |
+| [UC1-TASK-006](tasks/UC1-TASK-006.md) | MCP — identify and rename movie          | 🟦      |
 
 ---
 
