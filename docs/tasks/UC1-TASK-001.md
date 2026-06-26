@@ -1,7 +1,7 @@
-# TASK-001 — Movie filename parser
+# UC1-TASK-001 — Movie filename parser
 
-**Requirements:** [requirements/identification.md](requirements/identification.md) — "Information extracted from the filename"
-**File types:** [requirements/file-handling.md](requirements/file-handling.md) — "Recognised file extensions"
+**Requirements:** [requirements/identification.md](../requirements/identification.md) — "Information extracted from the filename"
+**File types:** [requirements/file-handling.md](../requirements/file-handling.md) — "Recognised file extensions"
 
 ---
 

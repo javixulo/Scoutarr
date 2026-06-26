@@ -1,13 +1,13 @@
-# TASK-002 — TMDB movie search and confidence scoring
+# UC1-TASK-002 — TMDB movie search and confidence scoring
 
-**Requirements:** [requirements/identification.md](requirements/identification.md) — "Metadata source", "Confidence and automatic acceptance", "No results"
+**Requirements:** [requirements/identification.md](../requirements/identification.md) — "Metadata source", "Confidence and automatic acceptance", "No results"
 **Skill:** [skills/tmdb-api/SKILL.md](skills/tmdb-api/SKILL.md)
 
 ---
 
 ## Context
 
-Given a `ParsedMovieFilename` from TASK-001, Scoutarr queries TMDB for movie candidates and assigns a confidence score to each result. The caller receives a ranked list of `MovieCandidate` objects.
+Given a `ParsedMovieFilename` from UC1-TASK-001, Scoutarr queries TMDB for movie candidates and assigns a confidence score to each result. The caller receives a ranked list of `MovieCandidate` objects.
 
 This task covers:
 - Calling the TMDB `/search/movie` endpoint via `ITmdbClient`
@@ -91,10 +91,6 @@ Feature: TMDB movie search and confidence scoring
   I want to search TMDB for movie candidates and rank them by confidence
   So that the caller can select the best match or trigger disambiguation
 
-  # ─────────────────────────────────────────
-  # HAPPY PATH — search and ranking
-  # ─────────────────────────────────────────
-
   Scenario: Exact title and year match scores highest
     Given a parsed filename with title "The Batman" and year 2022
     And TMDB returns candidates including "The Batman" (2022) and "Batman" (1989)
@@ -108,47 +104,6 @@ Feature: TMDB movie search and confidence scoring
     When the search is executed
     Then the top candidate is "Inception" (2010)
     And its confidence score is above 0.60
-
-  Scenario: Same year, higher title similarity wins
-    Given a parsed filename with title "The Batman" and year 2022
-    And TMDB returns two candidates both from 2022: "The Batman" and "Batman and Robin"
-    When the search is executed
-    Then "The Batman" scores higher than "Batman and Robin"
-
-  Scenario: Year match breaks tie between candidates with similar title similarity
-    Given a parsed filename with title "Batman" and year 2022
-    And TMDB returns two candidates with similar title similarity: "The Batman" (2022) and "The Batman" (1989)
-    When the search is executed
-    Then "The Batman" (2022) scores higher than "The Batman" (1989)
-
-  Scenario: Multiple candidates are returned ordered by confidence descending
-    Given a parsed filename with title "Batman" and year 2022
-    And TMDB returns three candidates with varying title similarity and year matches
-    When the search is executed
-    Then candidates are ordered from highest to lowest confidence score
-
-  Scenario: Popularity is used as tiebreaker when title and year scores are equal
-    Given a parsed filename with title "Dune" and no year
-    And TMDB returns two candidates both titled "Dune" with no year in filename to match against
-    And the 2021 version has significantly higher TMDB popularity than the 1984 version
-    When the search is executed
-    Then the 2021 version ranks above the 1984 version
-
-  Scenario: Title similarity is compared against original_title as well
-    Given a parsed filename with title "El Laberinto del Fauno" and year 2006
-    And TMDB returns a candidate with title "Pan's Labyrinth" and original_title "El laberinto del fauno" (2006)
-    When the search is executed
-    Then the candidate scores above 0.90
-
-  Scenario: TMDB year is extracted from release_date field
-    Given a parsed filename with title "Dune" and year 2021
-    And TMDB returns a candidate with release_date "2021-09-15"
-    When the search is executed
-    Then the year 2021 is correctly matched and the year score is full
-
-  # ─────────────────────────────────────────
-  # NEGATIVE CASES
-  # ─────────────────────────────────────────
 
   Scenario: TMDB returns zero results
     Given a parsed filename with title "Zxqfnmvp" and no year

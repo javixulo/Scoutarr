@@ -1,7 +1,7 @@
 # Scoutarr – Backlog
 
 > Maintained by Nick Fury. Updated at the end of each development cycle.
-> Task files live at the root of the repository as `TASK-XXX.md` (UC1) or `UC2-TASK-XXX.md` (UC2 onwards).
+> Task files live under `docs/tasks/` as `UC1-TASK-XXX.md`, `UC2-TASK-XXX.md`, etc.
 
 ---
 
@@ -24,12 +24,12 @@
 
 | Task     | Title                                    | Status |
 | -------- | ---------------------------------------- | ------ |
-| TASK-001 | Movie filename parser                    | 🟦      |
-| TASK-002 | TMDB movie search and confidence scoring | 🟦      |
-| TASK-003 | Output filename formatter (movie)        | 🟦      |
-| TASK-004 | Core orchestration — identify movie      | 🟦      |
-| TASK-005 | REST API — identify and rename movie     | 🟦      |
-| TASK-006 | MCP — identify and rename movie          | 🟦      |
+| [UC1-TASK-001](tasks/UC1-TASK-001.md) | Movie filename parser                    | 🟦      |
+| [UC1-TASK-002](tasks/UC1-TASK-002.md) | TMDB movie search and confidence scoring | 🟦      |
+| [UC1-TASK-003](tasks/UC1-TASK-003.md) | Output filename formatter (movie)        | 🟦      |
+| [UC1-TASK-004](tasks/UC1-TASK-004.md) | Core orchestration — identify movie      | 🟦      |
+| [UC1-TASK-005](tasks/UC1-TASK-005.md) | REST API — identify and rename movie     | 🟦      |
+| [UC1-TASK-006](tasks/UC1-TASK-006.md) | MCP — identify and rename movie          | 🟦      |
 
 ---
 
@@ -37,16 +37,16 @@
 
 | Task           | Title                                                        | Status |
 | -------------- | ------------------------------------------------------------ | ------ |
-| UC2-TASK-001   | TV series title parser                                       | 🟦      |
-| UC2-TASK-002   | Extend ITmdbClient with TV show methods                      | 🟦      |
-| UC2-TASK-003   | TV show search service                                       | 🟦      |
-| UC2-TASK-004   | Core orchestration — identify TV series                      | 🟦      |
-| UC2-TASK-005   | TV episode number parser (heuristic chain, H1 only)          | 🟦      |
-| UC2-TASK-006   | TV episode lookup service                                    | 🟦      |
-| UC2-TASK-007   | Output filename formatter (TV episode)                       | 🟦      |
-| UC2-TASK-008   | TV episode file move service                                 | 🟦      |
-| UC2-TASK-009   | REST API — identify series, identify episode, rename episode | 🟦      |
-| UC2-TASK-010   | MCP — identify series, identify episode, rename episode      | 🟦      |
+| [UC2-TASK-001](tasks/UC2-TASK-001.md)   | TV series title parser                                       | 🟦      |
+| [UC2-TASK-002](tasks/UC2-TASK-002.md)   | Extend ITmdbClient with TV show methods                      | 🟦      |
+| [UC2-TASK-003](tasks/UC2-TASK-003.md)   | TV show search service                                       | 🟦      |
+| [UC2-TASK-004](tasks/UC2-TASK-004.md)   | Core orchestration — identify TV series                      | 🟦      |
+| [UC2-TASK-005](tasks/UC2-TASK-005.md)   | TV episode number parser (heuristic chain, H1 only)          | 🟦      |
+| [UC2-TASK-006](tasks/UC2-TASK-006.md)   | TV episode lookup service                                    | 🟦      |
+| [UC2-TASK-007](tasks/UC2-TASK-007.md)   | Output filename formatter (TV episode)                       | 🟦      |
+| [UC2-TASK-008](tasks/UC2-TASK-008.md)   | TV episode file move service                                 | 🟦      |
+| [UC2-TASK-009](tasks/UC2-TASK-009.md)   | REST API — identify series, identify episode, rename episode | 🟦      |
+| [UC2-TASK-010](tasks/UC2-TASK-010.md)   | MCP — identify series, identify episode, rename episode      | 🟦      |
 
 ---
 

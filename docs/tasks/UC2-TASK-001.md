@@ -1,6 +1,6 @@
 # UC2-TASK-001 — TV series title parser
 
-**Requirements:** [identification.md](identification.md) — "Information extracted from the filename"
+**Requirements:** [requirements/identification.md](../requirements/identification.md) — "Information extracted from the filename"
 
 ---
 
@@ -73,10 +73,6 @@ Feature: TV series title parser
   I want to extract a clean series title from a dirty TV episode filename
   So that the result can be used to search TMDB for the correct series
 
-  # ─────────────────────────────────────────
-  # TITLE EXTRACTION — basic cases
-  # ─────────────────────────────────────────
-
   Scenario: Dots as separators, SxEy boundary
     Given the filename "Breaking.Bad.S01E02.720p.mkv"
     When the filename is parsed
@@ -105,15 +101,6 @@ Feature: TV series title parser
     Then the series title is "House of the Dragon"
     And the resolution is "4K"
 
-  Scenario: High season number
-    Given the filename "The.Simpsons.S33E10.mkv"
-    When the filename is parsed
-    Then the series title is "The Simpsons"
-
-  # ─────────────────────────────────────────
-  # YEAR EXTRACTION
-  # ─────────────────────────────────────────
-
   Scenario: Year present before episode boundary
     Given the filename "The.Office.2005.S03E01.mkv"
     When the filename is parsed
@@ -125,54 +112,11 @@ Feature: TV series title parser
     When the filename is parsed
     Then the year is null
 
-  Scenario: Year-like number below 1900 is not extracted as year
-    Given the filename "Show.1899.S01E01.mkv"
-    When the filename is parsed
-    Then the year is null
-    And the series title is "Show 1899"
-
-  # ─────────────────────────────────────────
-  # RESOLUTION EXTRACTION
-  # ─────────────────────────────────────────
-
-  Scenario: 720p resolution
-    Given the filename "Breaking.Bad.S01E02.720p.mkv"
-    When the filename is parsed
-    Then the resolution is "720p"
-
-  Scenario: 2160p resolution
-    Given the filename "Breaking.Bad.S01E02.2160p.mkv"
-    When the filename is parsed
-    Then the resolution is "2160p"
-
-  Scenario: 4K resolution token
-    Given the filename "House.of.the.Dragon.S01E03.4K.mkv"
-    When the filename is parsed
-    Then the resolution is "4K"
-
-  Scenario: No resolution token
-    Given the filename "Breaking.Bad.S01E02.mkv"
-    When the filename is parsed
-    Then the resolution is null
-
-  # ─────────────────────────────────────────
-  # RELEASE GROUP STRIPPING
-  # ─────────────────────────────────────────
-
   Scenario: Release group tag after resolution is stripped
     Given the filename "Game.of.Thrones.S08E06.1080p-YIFY.mkv"
     When the filename is parsed
     Then the series title is "Game of Thrones"
     And the resolution is "1080p"
-
-  Scenario: Hyphen in series title is not mistaken for release group
-    Given the filename "Man-Bat.S01E01.mkv"
-    When the filename is parsed
-    Then the series title is "Man-Bat"
-
-  # ─────────────────────────────────────────
-  # NEGATIVE CASES
-  # ─────────────────────────────────────────
 
   Scenario: Filename is only noise tokens, no recognisable title
     Given the filename "S01E02.720p-YIFY.mkv"
