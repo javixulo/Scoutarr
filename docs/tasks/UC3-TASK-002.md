@@ -13,6 +13,7 @@ This task covers:
 - Writing the metadata file after a successful series identification
 - Reading and deserialising the metadata file on subsequent passes
 - Refreshing season and episode data from TMDB for any season still marked as airing
+- Refreshing the series and season airing status on every pass, regardless of whether any season is still airing
 - Validating an episode number against the known series data
 
 No folder scanning. No renaming. No orchestration. Pure metadata read/write and validation logic.
@@ -59,7 +60,11 @@ SeriesMetadataReadResult =
 
 ## Refresh behaviour
 
-On each pass where a metadata file already exists, Scoutarr refreshes data from TMDB for any season where `IsAiring` is true. This updates episode counts, episode titles, and runtimes for ongoing seasons. Seasons marked as complete are not refreshed.
+On every pass where a metadata file already exists, Scoutarr:
+
+1. **Always** fetches the current series status from TMDB and updates `IsAiring` on the series. This handles reactivation of cancelled or ended series, as well as series that have ended since the last pass.
+2. **Always** fetches the current status of each season from TMDB and updates `IsAiring` and `IsComplete` accordingly. A season that was airing may now be complete; a season that was complete is checked for status changes only, not for new episodes.
+3. Refreshes the full episode list (counts, titles, runtimes) only for seasons where `IsAiring` is still `true` after the status update.
 
 `AbsoluteEpisodeNumber` is recalculated after each refresh, since episode counts in earlier airing seasons may have changed.
 
@@ -68,6 +73,8 @@ On each pass where a metadata file already exists, Scoutarr refreshes data from 
 ## TMDB data source
 
 Episode names and runtimes are fetched from the `/3/tv/{series_id}/season/{season_number}` endpoint, which returns the full episode list for a season including `name` and `runtime` per episode. One call per season is required.
+
+Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which returns the overall series status and the list of seasons with their current state.
 
 `AbsoluteEpisodeNumber` is not provided by TMDB — it is calculated by Scoutarr as the sum of all episodes in preceding seasons (ordered by season number, excluding Season 0) plus the episode's own number within its season. Season 0 (specials) is excluded from the absolute count and stored as `null`.
 
@@ -124,7 +131,11 @@ Episode names and runtimes are fetched from the `/3/tv/{series_id}/season/{seaso
 - All tests are pure — mock `IFileSystem` and `ITmdbClient`, no real I/O.
 - Test write: correct filename, correct JSON structure, written to the correct path.
 - Test read: valid file returns `SeriesMetadataFound`; missing file returns `SeriesMetadataNotFound`; malformed file returns `SeriesMetadataError`.
-- Test refresh: seasons with `IsAiring: true` are refreshed from TMDB; complete seasons are not.
+- Test series status refresh: always called, regardless of airing state.
+- Test season status refresh: always called; `IsAiring` and `IsComplete` are updated correctly.
+- Test episode refresh: only called for seasons that are still `IsAiring` after status update.
+- Test series reactivation: series was ended/cancelled, TMDB now marks it as airing — `IsAiring` updated to true.
+- Test season completion: season was `IsAiring: true`, TMDB now marks it complete — `IsAiring` set to false, `IsComplete` set to true, episode list not re-fetched.
 - Test `AbsoluteEpisodeNumber` calculation: correct across multiple seasons, excluding Season 0.
 - Test `AbsoluteEpisodeNumber` is recalculated after refresh when episode counts change.
 - Test validation: episode within range, episode out of range, season not found.
@@ -136,6 +147,7 @@ Episode names and runtimes are fetched from the `/3/tv/{series_id}/season/{seaso
 - Depends on `IFileSystem` and `ITmdbClient`.
 - Use `System.Text.Json` for serialisation — consistent with the rest of the project.
 - `AbsoluteEpisodeNumber` is stored in the JSON file and only recalculated after a refresh, not on every read.
+- Series and season status refresh always happens on every pass — do not skip it even when no seasons are airing.
 
 ---
 
@@ -168,6 +180,25 @@ Feature: Series metadata file
     When the metadata file is read
     Then SeriesMetadataError is returned with reason "Metadata file malformed"
 
+  Scenario: Series status is always refreshed from TMDB
+    Given a metadata file where the series has IsAiring false
+    When the metadata is refreshed
+    Then the series status is fetched from TMDB regardless
+
+  Scenario: Ended series is reactivated
+    Given a metadata file where the series has IsAiring false
+    And TMDB now reports the series as airing
+    When the metadata is refreshed
+    Then the series IsAiring is updated to true
+
+  Scenario: Airing season completes
+    Given a metadata file where Season 1 has IsAiring true and IsComplete false
+    And TMDB now reports Season 1 as complete
+    When the metadata is refreshed
+    Then Season 1 IsAiring is set to false
+    And Season 1 IsComplete is set to true
+    And the episode list for Season 1 is not re-fetched
+
   Scenario: Airing season is refreshed from TMDB
     Given a metadata file where Season 1 has IsAiring true and EpisodeCount 10
     And TMDB now reports Season 1 has 12 episodes
@@ -175,10 +206,10 @@ Feature: Series metadata file
     Then Season 1 EpisodeCount is updated to 12
     And the two new episodes have titles and runtimes from TMDB
 
-  Scenario: Complete season is not refreshed
+  Scenario: Complete season episode list is not re-fetched
     Given a metadata file where Season 1 has IsComplete true and EpisodeCount 10
     When the metadata is refreshed
-    Then TMDB is not called for Season 1
+    Then TMDB is not called to fetch the episode list for Season 1
 
   Scenario: Absolute episode number is calculated correctly across seasons
     Given a series with Season 1 (2 episodes) and Season 2 (2 episodes)
