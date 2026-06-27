@@ -331,8 +331,8 @@ This section summarises what is implemented and available after UC-02 (rename a 
 | `ITvShowIdentificationService` | Orchestrates series identification flow | **Reused directly** — series is identified once for the whole folder |
 | `ITvEpisodeLookupService` | Retrieves episode title from TMDB | **Reused directly** — called once per episode |
 | `ITvFilenameFormatter` | Formats episode output filename | **Reused directly** |
-| `ITvEpisodeMoveService` | Moves episode and subtitles to destination | **Reused directly** — called once per episode; extended with folder merge logic |
-| `ITmdbClient` | TMDB HTTP client | **Reused and extended** — adds `GetTvSeasonDetailsAsync` for episode-level metadata |
+| `ITvEpisodeMoveService` | Moves episode and subtitles to destination | **Reused directly** — called once per episode |
+| `ITmdbClient` | TMDB HTTP client | **Reused** — UC-03 may extend with batch or season-level calls if needed |
 | `ConfidenceScorer` | Shared confidence scoring utility | **Reused directly** |
 
 ---
@@ -354,16 +354,116 @@ This section summarises what is implemented and available after UC-02 (rename a 
 | `SubtitleMove` | Source and destination of a moved subtitle file | **Reused directly** |
 | Shared domain error model | Reason + detail | **Reused directly** |
 
+---
+
+### Scoutarr.Core — ITmdbClient
+
+After UC-02, `ITmdbClient` has:
+- `SearchMovieAsync` → list of movie candidates
+- `GetMovieDetailsAsync` → enriched movie details
+- `SearchTvShowAsync` → list of TV show candidates
+- `GetTvShowDetailsAsync` → season/episode structure
+- `GetTvShowEnrichmentAsync` → creator, cast, network, genres, status
+- `GetEpisodeDetailsAsync` → episode title
+
+UC-03 may add:
+- Season-level episode list fetching if bulk lookup is needed for performance
+
+---
+
+### Scoutarr.Core — filesystem
+
+`IFileSystem` abstraction is in place. `ITvEpisodeMoveService` handles:
+- Creating series and season folder structure
+- Moving video and subtitle files with rollback on failure
+- Cleaning up empty source directories
+
+UC-03 reuses `ITvEpisodeMoveService` directly for each episode in the folder. UC-03 adds:
+- Series metadata file write (`{Series Name} ({Year}).json`) to the series root folder after a successful pass
+- Folder merge logic when a series folder with the target name already exists
+
+---
+
+### Scoutarr.Api — REST endpoints
+
+After UC-02:
+- `POST /identify/movie` — identify movie
+- `POST /rename/movie` — rename movie on disk
+- `POST /identify/series` — identify TV series, returns success or disambiguation
+- `POST /identify/episode` — identify episode given confirmed series `tvId`
+- `POST /rename/episode` — move episode to `/media/tv` (requires confirmed `tvId`)
+
 UC-03 adds:
+- `POST /identify/folder` — identify series from a folder path
+- `POST /rename/folder` — rename all episodes in a folder
+
+---
+
+### Scoutarr.Mcp — MCP tools
+
+After UC-02:
+- `identify_movie`, `rename_movie`
+- `identify_series` — with enrichment (creator, cast, network, seasons, status)
+- `identify_episode` — given confirmed series `tvId`
+- `rename_episode` — moves to `/media/tv`, returns destination path and moved subtitles
+
+UC-03 adds:
+- `identify_folder` — identify series from a folder
+- `rename_folder` — rename all episodes in a folder, write metadata file
+
+---
+
+### What UC-03 must build from scratch
+
+- Series metadata file writer — writes `{Series Name} ({Year}).json` to the series root folder after a successful folder rename
+- Folder scanner — discovers all video files in a folder, grouped by season
+- Folder rename orchestrator — identifies the series once, then processes each episode using existing UC-02 services
+- Folder merge logic — handles the case where a series folder with the target name already exists
+- REST controllers and MCP tools for folder operations
+
+---
+
+## 9. State after UC-03 — What exists for UC-04 to build on
+
+This section summarises what is implemented and available after UC-03 (rename all episodes in a folder) is complete. UC-04 should extend or reuse these pieces rather than rebuilding them.
+
+---
+
+### Scoutarr.Core — interfaces
+
+| Interface | Purpose | Reuse in UC-04 |
+|---|---|---|
+| `IMovieFilenameParser` | Parses dirty movie filename | **Reused directly** |
+| `IMovieIdentificationService` | Orchestrates movie identification | **Reused directly** |
+| `ITvSeriesTitleParser` | Extracts series title from dirty filename | **Reused directly** |
+| `IEpisodeHeuristic` | Common interface for episode number heuristics | **Reused directly** |
+| `ITvEpisodeNumberParser` | Heuristic chain for season/episode extraction | **Reused directly** |
+| `ITvShowSearchService` | Searches TMDB for TV shows, scores candidates | **Reused directly** |
+| `ITvShowIdentificationService` | Orchestrates series identification flow | **Reused directly** |
+| `ITvEpisodeLookupService` | Retrieves episode title from TMDB | **Reused directly** |
+| `ITvFilenameFormatter` | Formats episode output filename | **Reused directly** |
+| `ITvEpisodeMoveService` | Moves episode and subtitles to destination; handles folder merge | **Reused directly** |
+| `IFolderScanner` | Discovers all video and subtitle files in a folder | **Reused directly** |
+| `ISeriesMetadataService` | Reads, writes, refreshes, and validates series metadata | **Reused directly** |
+| `IFolderRenameOrchestrator` | End-to-end folder processing: identify once, rename all | **Reused directly** |
+| `ITmdbClient` | TMDB HTTP client | **Reused directly** |
+| `ConfidenceScorer` | Shared confidence scoring utility | **Reused directly** |
+
+---
+
+### Scoutarr.Core — types
+
+All types from UC-01 and UC-02 remain available. UC-03 adds:
+
 | Type | Description |
 |---|---|
-| `ScannedFolder` | Raw folder name + list of `ScannedVideoFile` + ignored files |
+| `ScannedFolder` | Raw folder name + list of `ScannedVideoFile` + ignored file paths |
 | `ScannedVideoFile` | Video file path + list of `ScannedSubtitle` |
-| `ScannedSubtitle` | Subtitle path + optional language code |
-| `SeriesMetadata` | Full series metadata persisted to JSON: tmdbId, title, year, seasons, episodes |
+| `ScannedSubtitle` | Subtitle path + optional ISO language code |
+| `SeriesMetadata` | Full series metadata persisted to JSON: tmdbId, title, year, airing status, seasons |
 | `SeasonMetadata` | Season number, episode count, airing/complete status, episode list |
-| `EpisodeMetadata` | Episode number, absolute episode number, title, runtime |
-| `SeriesMetadataReadResult` | Discriminated union: `Found`, `NotFound`, `Error` |
+| `EpisodeMetadata` | Episode number, absolute episode number (null for Season 0), title, runtime in minutes |
+| `SeriesMetadataReadResult` | Discriminated union: `SeriesMetadataFound`, `SeriesMetadataNotFound`, `SeriesMetadataError` |
 | `FolderIdentifyResult` | Series title, tmdbId, suggested filenames per episode, failures |
 | `FolderRenameResult` | Series title, tmdbId, rename successes, failures |
 | `EpisodeIdentifyResult` | Original filename + suggested filename |
@@ -385,20 +485,25 @@ After UC-03, `ITmdbClient` has:
 
 ---
 
-### Scoutarr.Core — filesystem
+### Scoutarr.Core — ISeriesMetadataService
 
-`IFileSystem` abstraction is in place. After UC-03, `ITvEpisodeMoveService` additionally handles:
-- Reusing an existing series destination folder without recreating it (folder merge)
-- Skipping files that already exist at destination and reporting them as failures
-- Reporting permission errors and path-is-not-a-directory errors as failures
-
-`ISeriesMetadataService` is new in UC-03 and handles:
-- Writing `{Series Title} ({Year}).json` to the series root folder
-- Reading and deserialising the metadata file on subsequent passes
-- Refreshing series and season status from TMDB on every pass
-- Refreshing episode list from TMDB for seasons still marked as airing
+New in UC-03. Handles the full lifecycle of `{Series Title} ({Year}).json`:
+- Writing the file to the series root folder after a successful identification
+- Reading and deserialising on subsequent passes (`SeriesMetadataReadResult`)
+- Refreshing series and season airing status from TMDB on every pass — always, regardless of whether any season is currently airing, to detect reactivations of cancelled or ended series
+- Refreshing the full episode list (title, runtime) only for seasons still marked as airing after the status update
 - Recalculating `AbsoluteEpisodeNumber` after each refresh
 - Validating episode numbers against known season data
+
+---
+
+### Scoutarr.Core — ITvEpisodeMoveService (extended)
+
+Extended in UC-03 with folder merge behaviour:
+- Reuses an existing series destination folder without recreating it
+- Skips files that already exist at destination and reports them as `EpisodeFolderFailure` with reason "File already exists at destination"
+- Reports permission errors as `EpisodeFolderFailure` with reason "Insufficient permissions at destination"
+- Reports path-is-not-a-directory errors as `EpisodeFolderFailure` with reason "Destination path is not a directory"
 
 ---
 
@@ -410,10 +515,8 @@ After UC-03:
 - `POST /identify/series` — identify TV series, returns success or disambiguation
 - `POST /identify/episode` — identify episode given confirmed series `tvId`
 - `POST /rename/episode` — move episode to `/media/tv`
-- `POST /identify/folder` — scan folder, identify series, return suggested filenames for all episodes; write metadata file
-- `POST /rename/folder` — scan folder, identify series, move all episodes, write metadata file; returns aggregated successes and failures
-
-Both folder endpoints accept an optional `tmdbId` parameter to skip series identification. Partial failures return `200` with the failures described in the response body.
+- `POST /identify/folder` — scan folder, identify series, return suggested filenames for all episodes; write metadata file; accepts optional `tmdbId` to skip identification
+- `POST /rename/folder` — scan folder, identify series, move all episodes, write metadata file; returns aggregated successes and failures; partial failures return `200`
 
 ---
 
@@ -422,10 +525,10 @@ Both folder endpoints accept an optional `tmdbId` parameter to skip series ident
 After UC-03:
 - `identify_movie`, `rename_movie`
 - `identify_series`, `identify_episode`, `rename_episode`
-- `identify_folder` — scan folder, identify series, return suggested filenames grouped by season; write metadata file; guide agent through disambiguation if needed
-- `rename_folder` — scan folder, identify series, move all episodes, write metadata file; return aggregated summary; guide agent to report successes and failures clearly
+- `identify_folder` — scan folder, identify series, return suggested filenames grouped by season; write metadata file; guide agent through disambiguation using one focused question at a time; offer to call `rename_folder` if user confirms
+- `rename_folder` — scan folder, identify series, move all episodes, write metadata file; return aggregated summary; guide agent to report successes and failures clearly, with prominent warning if all episodes failed
 
-The MCP server system prompt is extended with a folder section covering disambiguation behaviour, how to present suggested filenames grouped by season, and how to report partial failures.
+The MCP server system prompt covers movie, episode, and folder disambiguation flows, including how to present suggested filenames grouped by season and how to handle partial failures.
 
 ---
 
@@ -437,9 +540,10 @@ UC-04 will be defined separately. At a minimum, it will find the following infra
 - Complete TV episode identification and renaming pipeline, single file (UC-02)
 - Complete TV folder processing pipeline with series metadata persistence (UC-03)
 - `IFileSystem` abstraction covering all filesystem operations
-- `ITmdbClient` covering movie search, TV search, episode details, season details, and series enrichment
-- `ISeriesMetadataService` for reading, writing, refreshing, and validating series metadata
-- `IFolderRenameOrchestrator` for end-to-end folder processing
-- REST API with six endpoints across movie, episode, and folder operations
-- MCP server with six tools and a system prompt covering all disambiguation and multi-step flows
+- `ITmdbClient` with seven methods covering movies, TV shows, episodes, seasons, and enrichment
+- `ISeriesMetadataService` for the full metadata file lifecycle
+- `IFolderScanner` for recursive folder discovery with subtitle pairing
+- `IFolderRenameOrchestrator` for end-to-end folder processing in both identify and rename modes
+- REST API with seven endpoints across movie, episode, and folder operations
+- MCP server with seven tools and a system prompt covering all disambiguation and multi-step flows
 - Full test coverage at unit, integration, and E2E layers
