@@ -547,3 +547,93 @@ UC-04 will be defined separately. At a minimum, it will find the following infra
 - REST API with seven endpoints across movie, episode, and folder operations
 - MCP server with seven tools and a system prompt covering all disambiguation and multi-step flows
 - Full test coverage at unit, integration, and E2E layers
+
+---
+
+## 10. State after UC-04 — What exists for UC-05 to build on
+
+This section summarises what is implemented and available after UC-04 (subsequent pass on a known series — single new episode) is complete. UC-05 should extend or reuse these pieces rather than rebuilding them.
+
+---
+
+### Scoutarr.Core — interfaces
+
+| Interface | Purpose | Reuse in UC-05 |
+|---|---|---|
+| All interfaces from UC-01 through UC-03 | See sections 7, 8, 9 | **All reused directly** |
+| `IKnownSeriesLocator` | Searches `/media/tv` for an existing series folder matching a given title and optional year; returns `KnownSeriesFound`, `KnownSeriesAmbiguous`, or `KnownSeriesNotFound` | **Reused directly** |
+
+---
+
+### Scoutarr.Core — types
+
+All types from UC-01 through UC-03 remain available. UC-04 adds:
+
+| Type | Description |
+|---|---|
+| `KnownSeriesMatchResult` | Discriminated union: `KnownSeriesFound`, `KnownSeriesAmbiguous`, `KnownSeriesNotFound` |
+| `KnownSeriesFound` | Series name, year, absolute folder path in `/media/tv`, loaded `SeriesMetadata` |
+| `KnownSeriesAmbiguous` | List of `KnownSeriesCandidate` — each with series name, year, and folder path |
+| `KnownSeriesCandidate` | Series name, year, absolute folder path in `/media/tv` |
+| `KnownSeriesNotFound` | No fields — signals caller to use the standard UC-02 flow |
+
+---
+
+### Scoutarr.Core — rename_episode orchestration (extended)
+
+UC-04 extends the existing `rename_episode` orchestrator with a new branch at the start of the flow:
+
+1. Call `IKnownSeriesLocator` with the title extracted from the parent folder name (preferred) or the filename.
+2. If `KnownSeriesNotFound` → fall through to the existing UC-02 flow unchanged.
+3. If `KnownSeriesAmbiguous` → go to TMDB disambiguation (same flow as UC-02); if the resolved `tmdbId` matches a candidate folder, continue as `KnownSeriesFound`; otherwise fall through to UC-02.
+4. If `KnownSeriesFound`:
+   - Parse the episode number with `ITvEpisodeNumberParser`.
+   - If the episode's season is marked as **not airing** in the metadata: validate episode against metadata as-is — no TMDB call.
+   - If the episode's season is marked as **airing**: refresh that season via `ISeriesMetadataService`, persist the updated metadata, then validate.
+   - If validation fails (episode out of range or season not found): return a domain error, no files moved.
+   - If validation passes: read episode title from `SeriesMetadata` (no `ITvEpisodeLookupService` call); format output filename; move file and subtitles with `ITvEpisodeMoveService`.
+
+No changes to `Scoutarr.Api`, `Scoutarr.Mcp`, or any interface layer — the new branch is entirely within `Scoutarr.Core`.
+
+---
+
+### Scoutarr.Core — IKnownSeriesLocator
+
+New in UC-04. Responsibilities:
+
+- List all folders in `/media/tv` using `IFileSystem`.
+- Parse each folder name as `{Series Name} ({Year})` — folders that do not match this pattern are silently ignored.
+- Match against the extracted title (and optional year) using case-insensitive comparison.
+- When a match is found, delegate to `ISeriesMetadataService` to read the metadata file. If the file is malformed, return a domain error rather than a `KnownSeriesFound` result.
+- Title extraction prefers the parent folder name over the filename; both are normalised using the same cleaning rules as `ITvSeriesTitleParser`.
+
+---
+
+### Scoutarr.Api — REST endpoints
+
+No new endpoints added in UC-04. The existing `POST /rename/episode` endpoint now transparently handles both new series (UC-02 flow) and known series (UC-04 flow) based on whether a matching folder exists in `/media/tv`.
+
+---
+
+### Scoutarr.Mcp — MCP tools
+
+No new tools added in UC-04. The existing `rename_episode` tool now transparently handles both flows. No changes to the system prompt are needed — the outcome is the same from the agent's perspective.
+
+---
+
+### What UC-05 must build from scratch
+
+UC-05 will be defined separately. At a minimum, it will find the following infrastructure ready to use:
+
+- Complete movie identification and renaming pipeline (UC-01)
+- Complete TV episode identification and renaming pipeline, single file (UC-02)
+- Complete TV folder processing pipeline with series metadata persistence (UC-03)
+- Known series local matching via `IKnownSeriesLocator`, integrated into `rename_episode` (UC-04)
+- Selective metadata refresh: TMDB is only called for seasons still marked as airing
+- `IFileSystem` abstraction covering all filesystem operations
+- `ITmdbClient` with seven methods
+- `ISeriesMetadataService` for the full metadata file lifecycle including selective season refresh
+- `IFolderScanner`, `IFolderRenameOrchestrator`
+- REST API with seven endpoints
+- MCP server with seven tools
+- Full test coverage at unit, integration, and E2E layers
