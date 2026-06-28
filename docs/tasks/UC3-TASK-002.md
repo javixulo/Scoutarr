@@ -45,9 +45,10 @@ SeasonMetadata
 EpisodeMetadata
 {
     EpisodeNumber:         int
-    AbsoluteEpisodeNumber: int?    // null for Season 0 specials
+    AbsoluteEpisodeNumber: int?        // null for Season 0 specials
     Title:                 string
-    RuntimeMinutes:        int?    // null if not provided by TMDB
+    RuntimeMinutes:        int?        // null if not provided by TMDB
+    AirDate:               DateOnly?   // null if not provided by TMDB
 }
 
 SeriesMetadataReadResult =
@@ -64,7 +65,7 @@ On every pass where a metadata file already exists, Scoutarr:
 
 1. **Always** fetches the current series status from TMDB and updates `IsAiring` on the series. This handles reactivation of cancelled or ended series, as well as series that have ended since the last pass.
 2. **Always** fetches the current status of each season from TMDB and updates `IsAiring` and `IsComplete` accordingly. A season that was airing may now be complete; a season that was complete is checked for status changes only, not for new episodes.
-3. Refreshes the full episode list (counts, titles, runtimes) only for seasons where `IsAiring` is still `true` after the status update.
+3. Refreshes the full episode list (counts, titles, runtimes, air dates) only for seasons where `IsAiring` is still `true` after the status update.
 
 `AbsoluteEpisodeNumber` is recalculated after each refresh, since episode counts in earlier airing seasons may have changed.
 
@@ -72,7 +73,7 @@ On every pass where a metadata file already exists, Scoutarr:
 
 ## TMDB data source
 
-Episode names and runtimes are fetched from the `/3/tv/{series_id}/season/{season_number}` endpoint, which returns the full episode list for a season including `name` and `runtime` per episode. One call per season is required.
+Episode names, runtimes, and air dates are fetched from the `/3/tv/{series_id}/season/{season_number}` endpoint, which returns the full episode list for a season including `name`, `runtime`, and `air_date` per episode. One call per season is required.
 
 Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which returns the overall series status and the list of seasons with their current state.
 
@@ -96,8 +97,8 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
       "isAiring": false,
       "isComplete": true,
       "episodes": [
-        { "episodeNumber": 1, "absoluteEpisodeNumber": null, "title": "Special 1", "runtimeMinutes": 45 },
-        { "episodeNumber": 2, "absoluteEpisodeNumber": null, "title": "Special 2", "runtimeMinutes": 42 }
+        { "episodeNumber": 1, "absoluteEpisodeNumber": null, "title": "Special 1", "runtimeMinutes": 45, "airDate": "2008-01-20" },
+        { "episodeNumber": 2, "absoluteEpisodeNumber": null, "title": "Special 2", "runtimeMinutes": 42, "airDate": "2008-02-10" }
       ]
     },
     {
@@ -106,8 +107,8 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
       "isAiring": false,
       "isComplete": true,
       "episodes": [
-        { "episodeNumber": 1, "absoluteEpisodeNumber": 1, "title": "Pilot", "runtimeMinutes": 58 },
-        { "episodeNumber": 2, "absoluteEpisodeNumber": 2, "title": "Cat's in the Bag", "runtimeMinutes": 48 }
+        { "episodeNumber": 1, "absoluteEpisodeNumber": 1, "title": "Pilot", "runtimeMinutes": 58, "airDate": "2008-01-20" },
+        { "episodeNumber": 2, "absoluteEpisodeNumber": 2, "title": "Cat's in the Bag", "runtimeMinutes": 48, "airDate": "2008-01-27" }
       ]
     },
     {
@@ -116,8 +117,8 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
       "isAiring": false,
       "isComplete": true,
       "episodes": [
-        { "episodeNumber": 1, "absoluteEpisodeNumber": 3, "title": "Seven Thirty-Seven", "runtimeMinutes": 47 },
-        { "episodeNumber": 2, "absoluteEpisodeNumber": 4, "title": "Grilled", "runtimeMinutes": 47 }
+        { "episodeNumber": 1, "absoluteEpisodeNumber": 3, "title": "Seven Thirty-Seven", "runtimeMinutes": 47, "airDate": "2009-03-08" },
+        { "episodeNumber": 2, "absoluteEpisodeNumber": 4, "title": "Grilled", "runtimeMinutes": 47, "airDate": "2009-03-15" }
       ]
     }
   ]
@@ -133,7 +134,7 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
 - Test read: valid file returns `SeriesMetadataFound`; missing file returns `SeriesMetadataNotFound`; malformed file returns `SeriesMetadataError`.
 - Test series status refresh: always called, regardless of airing state.
 - Test season status refresh: always called; `IsAiring` and `IsComplete` are updated correctly.
-- Test episode refresh: only called for seasons that are still `IsAiring` after status update.
+- Test episode refresh: only called for seasons that are still `IsAiring` after status update; `AirDate` is included in the refreshed episode data.
 - Test series reactivation: series was ended/cancelled, TMDB now marks it as airing — `IsAiring` updated to true.
 - Test season completion: season was `IsAiring: true`, TMDB now marks it complete — `IsAiring` set to false, `IsComplete` set to true, episode list not re-fetched.
 - Test `AbsoluteEpisodeNumber` calculation: correct across multiple seasons, excluding Season 0.
@@ -146,6 +147,7 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
 - Filename format: `{Series Title} ({Year}).json`, written to the root series folder.
 - Depends on `IFileSystem` and `ITmdbClient`.
 - Use `System.Text.Json` for serialisation — consistent with the rest of the project.
+- `AirDate` is serialised as `"yyyy-MM-dd"` string in JSON using `DateOnly` with a custom converter if needed.
 - `AbsoluteEpisodeNumber` is stored in the JSON file and only recalculated after a refresh, not on every read.
 - Series and season status refresh always happens on every pass — do not skip it even when no seasons are airing.
 
@@ -163,7 +165,7 @@ Feature: Series metadata file
     Given a confirmed series "Breaking Bad" (2008) with TMDB ID 1396
     When the metadata file is written to "/media/tv/Breaking Bad (2008)/"
     Then a file named "Breaking Bad (2008).json" exists at that path
-    And each episode has a title, runtime, and absolute episode number where applicable
+    And each episode has a title, runtime, air date, and absolute episode number where applicable
 
   Scenario: Metadata file is read on subsequent pass
     Given a valid "Breaking Bad (2008).json" exists in the series folder
@@ -204,7 +206,7 @@ Feature: Series metadata file
     And TMDB now reports Season 1 has 12 episodes
     When the metadata is refreshed
     Then Season 1 EpisodeCount is updated to 12
-    And the two new episodes have titles and runtimes from TMDB
+    And the two new episodes have titles, runtimes, and air dates from TMDB
 
   Scenario: Complete season episode list is not re-fetched
     Given a metadata file where Season 1 has IsComplete true and EpisodeCount 10
