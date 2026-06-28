@@ -72,7 +72,10 @@
 
 | Task     | Title                                                      | Status |
 | -------- | ---------------------------------------------------------- | ------ |
-| [UC5-TASK-001](tasks/UC5-TASK-001.md) | Episode number heuristics — H2 (compact numeric + TMDB validation) | 🟦      |
+| [UC5-TASK-001](tasks/UC5-TASK-001.md) | H2 — Absolute episode number                              | 🟦      |
+| [UC5-TASK-002](tasks/UC5-TASK-002.md) | H3 — Special episode identification by file duration      | 🟦      |
+| [UC5-TASK-003](tasks/UC5-TASK-003.md) | H4 — Episode identification by air date                  | 🟦      |
+| [UC5-TASK-004](tasks/UC5-TASK-004.md) | H5 — Episode identification by title match               | 🟦      |
 
 ---
 
