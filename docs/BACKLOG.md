@@ -54,11 +54,8 @@
 
 | Task     | Title                                                  | Status |
 | -------- | ------------------------------------------------------ | ------ |
-| TASK-012 | Folder structure builder                               | ⬜      |
-| TASK-013 | Series metadata file — write and read                  | ⬜      |
-| TASK-014 | Core orchestration — identify and rename series folder | ⬜      |
-| TASK-015 | REST API — identify and rename series folder           | ⬜      |
-| TASK-016 | MCP — identify and rename series folder                | ⬜      |
+| [UC3-TASK-001](tasks/UC3-TASK-001.md) | Folder scanner                                         | 🟦      |
+| [UC3-TASK-002](tasks/UC3-TASK-002.md) | Series metadata file — write, read, refresh, validate  | 🟦      |
 
 ---
 
@@ -66,19 +63,16 @@
 
 | Task     | Title                                            | Status |
 | -------- | ------------------------------------------------ | ------ |
-| TASK-017 | Series metadata validation — episode range check | ⬜      |
-| TASK-018 | Series metadata refresh — airing seasons         | ⬜      |
-| TASK-019 | Core orchestration — subsequent pass             | ⬜      |
-| TASK-020 | REST API — subsequent pass                       | ⬜      |
-| TASK-021 | MCP — subsequent pass                            | ⬜      |
+| [UC4-TASK-001](tasks/UC4-TASK-001.md) | Known series locator                             | 🟦      |
+| [UC4-TASK-002](tasks/UC4-TASK-002.md) | Subsequent pass orchestration for single episode | 🟦      |
 
 ---
 
-## UC-05 — Add new episode number heuristics
+## UC-05 — Add a set of heuristics to improve episode number recognition
 
-| Task | Title | Status |
-| ---- | ----- | ------ |
-| ⬜    | To be defined | ⬜ |
+| Task     | Title                                                      | Status |
+| -------- | ---------------------------------------------------------- | ------ |
+| [UC5-TASK-001](tasks/UC5-TASK-001.md) | Episode number heuristics — H2 (compact numeric + TMDB validation) | 🟦      |
 
 ---
 
