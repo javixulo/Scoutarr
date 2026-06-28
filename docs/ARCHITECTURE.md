@@ -301,8 +301,9 @@ The MCP server system prompt is extended to cover TV show and episode disambigua
 ### What UC-02 must build from scratch
 
 - `ITvSeriesTitleParser` / `TvSeriesTitleParser` — extracts series title (and optional year, resolution) from dirty filename
-- `IEpisodeHeuristic` — common interface for episode number heuristics chain
-- `ITvEpisodeNumberParser` / `TvEpisodeNumberParser` — heuristic chain; initially only Heuristic 1 (SxEy pattern)
+- `EpisodeParseContext` — record carrying `Filename`, `Metadata?`, and `FileDuration?`; passed to every heuristic instead of individual parameters
+- `IEpisodeHeuristic` — common interface for episode number heuristics chain; `TryParse(EpisodeParseContext)` → `ParsedEpisodeNumber?`
+- `ITvEpisodeNumberParser` / `TvEpisodeNumberParser` — heuristic chain; initially only H1 (SxEy pattern)
 - `ITvShowSearchService` / `TvShowSearchService` — searches TMDB for TV shows, scores candidates using `ConfidenceScorer`
 - `ITvShowIdentificationService` / `TvShowIdentificationService` — orchestrates series identification flow
 - `ITvEpisodeLookupService` / `TvEpisodeLookupService` — retrieves episode title from TMDB given confirmed series and episode number
@@ -325,7 +326,7 @@ This section summarises what is implemented and available after UC-02 (rename a 
 | `IMovieFilenameParser` | Parses dirty movie filename | Not relevant for UC-03 |
 | `IMovieIdentificationService` | Orchestrates movie identification | Not relevant for UC-03 |
 | `ITvSeriesTitleParser` | Extracts series title from dirty filename | **Reused directly** |
-| `IEpisodeHeuristic` | Common interface for episode number heuristics | **Reused directly** — UC-03 processes many files using the same chain |
+| `IEpisodeHeuristic` | Common interface for episode number heuristics; `TryParse(EpisodeParseContext)` → `ParsedEpisodeNumber?` | **Reused directly** — UC-03 processes many files using the same chain |
 | `ITvEpisodeNumberParser` | Heuristic chain for season/episode extraction | **Reused directly** |
 | `ITvShowSearchService` | Searches TMDB for TV shows, scores candidates | **Reused directly** |
 | `ITvShowIdentificationService` | Orchestrates series identification flow | **Reused directly** — series is identified once for the whole folder |
@@ -341,6 +342,7 @@ This section summarises what is implemented and available after UC-02 (rename a 
 
 | Type | Description | Reuse in UC-03 |
 |---|---|---|
+| `EpisodeParseContext` | Filename, optional `SeriesMetadata`, optional `FileDuration` (TimeSpan) | **Reused directly** |
 | `ParsedTvSeriesTitle` | Series title, optional year and resolution | **Reused directly** |
 | `ParsedEpisodeNumber` | Season and episode number | **Reused directly** |
 | `TvShowCandidate` | TMDB series candidate with confidence score | **Reused directly** |
@@ -436,7 +438,7 @@ This section summarises what is implemented and available after UC-03 (rename al
 | `IMovieFilenameParser` | Parses dirty movie filename | **Reused directly** |
 | `IMovieIdentificationService` | Orchestrates movie identification | **Reused directly** |
 | `ITvSeriesTitleParser` | Extracts series title from dirty filename | **Reused directly** |
-| `IEpisodeHeuristic` | Common interface for episode number heuristics | **Reused directly** |
+| `IEpisodeHeuristic` | Common interface for episode number heuristics; `TryParse(EpisodeParseContext)` → `ParsedEpisodeNumber?` | **Reused directly** |
 | `ITvEpisodeNumberParser` | Heuristic chain for season/episode extraction | **Reused directly** |
 | `ITvShowSearchService` | Searches TMDB for TV shows, scores candidates | **Reused directly** |
 | `ITvShowIdentificationService` | Orchestrates series identification flow | **Reused directly** |
@@ -462,7 +464,7 @@ All types from UC-01 and UC-02 remain available. UC-03 adds:
 | `ScannedSubtitle` | Subtitle path + optional ISO language code |
 | `SeriesMetadata` | Full series metadata persisted to JSON: tmdbId, title, year, airing status, seasons |
 | `SeasonMetadata` | Season number, episode count, airing/complete status, episode list |
-| `EpisodeMetadata` | Episode number, absolute episode number (null for Season 0), title, runtime in minutes |
+| `EpisodeMetadata` | Episode number, absolute episode number (null for Season 0), title, runtime in minutes, air date (DateOnly, nullable) |
 | `SeriesMetadataReadResult` | Discriminated union: `SeriesMetadataFound`, `SeriesMetadataNotFound`, `SeriesMetadataError` |
 | `FolderIdentifyResult` | Series title, tmdbId, suggested filenames per episode, failures |
 | `FolderRenameResult` | Series title, tmdbId, rename successes, failures |
@@ -481,7 +483,7 @@ After UC-03, `ITmdbClient` has:
 - `GetTvShowDetailsAsync` → season/episode structure and series status
 - `GetTvShowEnrichmentAsync` → creator, cast, network, genres, status
 - `GetEpisodeDetailsAsync` → episode title
-- `GetTvSeasonDetailsAsync(int tvId, int season)` → full episode list for a season including name and runtime per episode
+- `GetTvSeasonDetailsAsync(int tvId, int season)` → full episode list for a season including name, runtime, and air date per episode
 
 ---
 
@@ -491,7 +493,7 @@ New in UC-03. Handles the full lifecycle of `{Series Title} ({Year}).json`:
 - Writing the file to the series root folder after a successful identification
 - Reading and deserialising on subsequent passes (`SeriesMetadataReadResult`)
 - Refreshing series and season airing status from TMDB on every pass — always, regardless of whether any season is currently airing, to detect reactivations of cancelled or ended series
-- Refreshing the full episode list (title, runtime) only for seasons still marked as airing after the status update
+- Refreshing the full episode list (title, runtime, air date) only for seasons still marked as airing after the status update
 - Recalculating `AbsoluteEpisodeNumber` after each refresh
 - Validating episode numbers against known season data
 
@@ -623,13 +625,17 @@ No new tools added in UC-04. The existing `rename_episode` tool now transparentl
 
 ### What UC-05 must build from scratch
 
-UC-05 will be defined separately. At a minimum, it will find the following infrastructure ready to use:
+UC-05 adds four new episode number heuristics (H2–H5) to the existing chain in `TvEpisodeNumberParser`. At a minimum, it will find the following infrastructure ready to use:
 
 - Complete movie identification and renaming pipeline (UC-01)
 - Complete TV episode identification and renaming pipeline, single file (UC-02)
 - Complete TV folder processing pipeline with series metadata persistence (UC-03)
 - Known series local matching via `IKnownSeriesLocator`, integrated into `rename_episode` (UC-04)
 - Selective metadata refresh: TMDB is only called for seasons still marked as airing
+- `EpisodeParseContext` — carries `Filename`, `Metadata?`, and `FileDuration?` into every heuristic
+- `IEpisodeHeuristic` with `TryParse(EpisodeParseContext)` → `ParsedEpisodeNumber?`
+- `TvEpisodeNumberParser` with H1 registered; UC-05 adds H2–H5 in order
+- `SeriesMetadata` with `EpisodeMetadata.AirDate` and `EpisodeMetadata.RuntimeMinutes` available to heuristics
 - `IFileSystem` abstraction covering all filesystem operations
 - `ITmdbClient` with seven methods
 - `ISeriesMetadataService` for the full metadata file lifecycle including selective season refresh
@@ -637,3 +643,29 @@ UC-05 will be defined separately. At a minimum, it will find the following infra
 - REST API with seven endpoints
 - MCP server with seven tools
 - Full test coverage at unit, integration, and E2E layers
+
+---
+
+## 11. State after UC-05 — What exists after all heuristics are implemented
+
+This section summarises what is implemented and available after UC-05 (episode number heuristics H2–H5) is complete.
+
+---
+
+### Scoutarr.Core — heuristic chain
+
+The `TvEpisodeNumberParser` heuristic chain after UC-05:
+
+| Order | Class | Strategy |
+|---|---|---|
+| H1 | `SxEyHeuristic` | Explicit `SxxEyy` pattern in filename |
+| H2 | `AbsoluteEpisodeNumberHeuristic` | Bare number matched against `AbsoluteEpisodeNumber` in metadata; compact `SxEy` encoding as fallback; title words for disambiguation |
+| H3 | `SpecialEpisodeDurationHeuristic` | File duration matched against `RuntimeMinutes` of Season 0 episodes; title words for disambiguation; requires `FileDuration` in context |
+| H4 | `AirDateHeuristic` | Date extracted from filename matched against `AirDate` in metadata; title words for disambiguation |
+| H5 | `TitleMatchHeuristic` | All significant title words matched against episode titles in metadata; retry without stop words if no match |
+
+All heuristics implement `IEpisodeHeuristic.TryParse(EpisodeParseContext)` → `ParsedEpisodeNumber?`. The chain stops at the first non-null result.
+
+### External dependency added in UC-05
+
+`MediaInfo.Wrapper.Core` (NuGet) is added to `Scoutarr.Core` to read file duration upstream before invoking the heuristic chain. The duration is placed in `EpisodeParseContext.FileDuration`. On Linux/Docker, requires system packages `libzen0v5 libmms0 zlib1g libnghttp2-14 librtmp1 libcurl4` (see TASK-023).
