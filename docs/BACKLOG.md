@@ -56,6 +56,10 @@
 | -------- | ------------------------------------------------------ | ------ |
 | [UC3-TASK-001](tasks/UC3-TASK-001.md) | Folder scanner                                         | 🟦      |
 | [UC3-TASK-002](tasks/UC3-TASK-002.md) | Series metadata file — write, read, refresh, validate  | 🟦      |
+| [UC3-TASK-003](tasks/UC3-TASK-003.md) | Folder rename orchestrator                             | 🟦      |
+| [UC3-TASK-004](tasks/UC3-TASK-004.md) | Folder merge logic                                     | 🟦      |
+| [UC3-TASK-005](tasks/UC3-TASK-005.md) | REST API — identify_folder, rename_folder              | 🟦      |
+| [UC3-TASK-006](tasks/UC3-TASK-006.md) | MCP — identify_folder, rename_folder                   | 🟦      |
 
 ---
 
