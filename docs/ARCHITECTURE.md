@@ -48,11 +48,12 @@ Error response shape (RFC 9457):
 
 HTTP status codes:
 - `200` — success.
+- `300` — disambiguation needed (multiple TMDB candidates above threshold; the caller selects one and retries with `candidateIndex`).
 - `400` — bad request (missing parameter, invalid format).
 - `403` — insufficient write permissions.
 - `404` — file or folder not found.
 - `409` — a file with the target name already exists.
-- `422` — no TMDB match found above the confidence threshold.
+- `422` — no TMDB match found above the confidence threshold, or metadata file malformed.
 - `500` — internal error (TMDB unreachable, etc.).
 
 ### MCP Server
@@ -109,7 +110,7 @@ Scoutarr uses five mount points inside the container:
 
 - `/input/movies` and `/input/tv` are where the user places dirty files or folders to be processed. They can point to a downloads directory or any staging area on the host.
 - `/media/movies` and `/media/tv` are the Jellyfin library roots. Scoutarr moves renamed files here.
-- In **Identify mode**, only `/input` is read. The destination volumes are never touched.
+- In **Identify mode**, only `/input` is read for media files. The series metadata file is still written to the series folder after a successful identification.
 - In **Rename mode**, files are moved from `/input/movies` or `/input/tv` to the appropriate destination volume.
 
 ### Branching strategy and image tags
@@ -303,11 +304,11 @@ The real implementation (`TmdbClient`) is extended. Tests continue to mock `ITmd
 ### Scoutarr.Api — REST endpoints
 
 After UC-01:
-- `POST /identify/movie` — identify movie, returns success or disambiguation (422)
+- `POST /identify/movie` — identify movie, returns success or disambiguation (300)
 - `POST /rename/movie` — rename movie on disk
 
 UC-02 adds:
-- `POST /identify/series` — identify TV series, returns success or disambiguation (422)
+- `POST /identify/series` — identify TV series, returns success or disambiguation (300)
 - `POST /identify/episode` — identify episode given confirmed series tmdbId
 - `POST /rename/episode` — move episode to correct destination in `/media/tv`
 
@@ -413,7 +414,7 @@ UC-03 may add:
 - Cleaning up empty source directories
 
 UC-03 reuses `ITvEpisodeMoveService` directly for each episode in the folder. UC-03 adds:
-- Series metadata file write (`{Series Name} ({Year}).json`) to the series root folder after a successful pass
+- Series metadata file write (`{Series Name} ({Year}).json`) to the series root folder after a successful pass, in both Identify and Rename mode
 - Folder merge logic when a series folder with the target name already exists
 
 ---
@@ -449,7 +450,7 @@ UC-03 adds:
 
 ### What UC-03 must build from scratch
 
-- Series metadata file writer — writes `{Series Name} ({Year}).json` to the series root folder after a successful folder rename
+- Series metadata file writer — writes `{Series Name} ({Year}).json` to the series root folder after a successful folder identification (both Identify and Rename mode)
 - Folder scanner — discovers all video files in a folder, grouped by season
 - Folder rename orchestrator — identifies the series once, then processes each episode using existing UC-02 services
 - Folder merge logic — handles the case where a series folder with the target name already exists
@@ -522,7 +523,7 @@ After UC-03, `ITmdbClient` has:
 ### Scoutarr.Core — ISeriesMetadataService
 
 New in UC-03. Handles the full lifecycle of `{Series Title} ({Year}).json`:
-- Writing the file to the series root folder after a successful identification
+- Writing the file to the series root folder after a successful identification in both Identify and Rename mode
 - Reading and deserialising on subsequent passes (`SeriesMetadataReadResult`)
 - Refreshing series and season airing status from TMDB on every pass — always, regardless of whether any season is currently airing, to detect reactivations of cancelled or ended series
 - Refreshing the full episode list (title, runtime, air date) only for seasons still marked as airing after the status update
