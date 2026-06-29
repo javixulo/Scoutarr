@@ -12,11 +12,11 @@ Scoutarr operates in two distinct modes, both exposed via REST API and MCP:
 
 Returns suggested filenames without touching the filesystem. Useful when the user does not have a volume mounted, wants to preview changes before applying them, or needs the suggested names to rename manually.
 
-- Does not write, rename, move, or modify any file or directory.
-- Does not write the series metadata file to the folder.
+- Does not write, rename, move, or modify any media file or directory.
 - For a single file, returns the original filename and the suggested filename.
 - For a folder (series), returns the suggested root folder name and a dictionary mapping each original filename to its suggested filename.
 - Non-media files are silently omitted from the response — since nothing is modified, the user does not need to be informed about them.
+- **Writes the series metadata file** to the root series folder after a successful series identification (TV episode and series folder only). This allows subsequent passes to skip identification even when no rename has been performed yet.
 
 ### Rename mode
 
@@ -136,13 +136,13 @@ When renaming the root series folder, two conflict scenarios must be handled:
 
 ## Series state
 
-After a series is identified in Rename mode, a metadata file is written to the root series folder. In Identify mode, no metadata file is written. For a single TV episode rename, no metadata file is written — this is deferred to UC3 (series folder rename).
+After a series is identified successfully — in either Identify or Rename mode — a metadata file is written to the root series folder. For a single TV episode, no metadata file is written — this is deferred to UC-03 (series folder operations).
 
 ### Metadata file
 
 - Format: JSON.
 - Filename: `{Series Name} ({Year}).json` (e.g. `Breaking Bad (2008).json`), written to the root series folder.
-- Written after a successful series identification in Rename mode for a series folder operation.
+- Written after a successful series identification for a series folder operation, in both Identify and Rename mode.
 - If the metadata file is incorrect, the user deletes it and runs the operation again.
 
 The metadata file contains:
