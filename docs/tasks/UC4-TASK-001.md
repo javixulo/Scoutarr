@@ -81,11 +81,11 @@ If the metadata file is present but malformed, the service returns a domain erro
 
 ## Notes for Tony Stark
 
-- Implement the new service in `Scoutarr.Core`. Name it as you see fit.
+- Implement `IKnownSeriesLocator` and `KnownSeriesLocator` in `Scoutarr.Core`.
 - Use `IFileSystem` to list folders in `/media/tv` — no direct filesystem calls.
 - Use `ISeriesMetadataService` to read the metadata file from the matched folder.
 - The title extracted from the parent folder name should be parsed with the same cleaning rules as `ITvSeriesTitleParser` (strip separators, year, release group) — reuse or extract a shared utility rather than duplicating logic.
-- Register the new service in the DI containers of both `Scoutarr.Api` and `Scoutarr.Mcp`.
+- Register `IKnownSeriesLocator` / `KnownSeriesLocator` in the DI containers of both `Scoutarr.Api` and `Scoutarr.Mcp`.
 
 ---
 
@@ -100,59 +100,59 @@ Feature: Known series matching in /media/tv
   Scenario: Exact match — year present in parent folder name
     Given the file is at "/input/tv/Breaking Bad 2008/s03e05.mkv"
     And "/media/tv/Breaking Bad (2008)" exists with a valid metadata file
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound
     And the series name is "Breaking Bad" and the year is 2008
 
   Scenario: Exact match — year present in filename
     Given the file is at "/input/tv/breaking.bad.2008.s03e05.mkv"
     And "/media/tv/Breaking Bad (2008)" exists with a valid metadata file
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound
     And the series name is "Breaking Bad" and the year is 2008
 
   Scenario: Title-only match — no year available, one folder matches
     Given the file is at "/input/tv/breaking.bad.s03e05.mkv"
     And "/media/tv/Breaking Bad (2008)" is the only matching folder
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound
 
   Scenario: Ambiguous match — no year, multiple folders match
     Given the file is at "/input/tv/the.office.s03e05.mkv"
     And both "/media/tv/The Office (2001)" and "/media/tv/The Office (2005)" exist
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesAmbiguous
     And both candidates are returned
 
   Scenario: Ambiguous match resolved by year
     Given the file is at "/input/tv/The Office 2005/s03e05.mkv"
     And both "/media/tv/The Office (2001)" and "/media/tv/The Office (2005)" exist
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound
     And the series year is 2005
 
   Scenario: No match
     Given the file is at "/input/tv/severance.s02e01.mkv"
     And no folder in "/media/tv" matches "Severance"
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesNotFound
 
   Scenario: Malformed metadata file
     Given the file is at "/input/tv/breaking.bad.s03e05.mkv"
     And "/media/tv/Breaking Bad (2008)" exists but its metadata file is malformed
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then a domain error is returned with reason "Series metadata file is malformed"
 
   Scenario: Matching is case-insensitive
     Given the file is at "/input/tv/BREAKING.BAD.S03E05.mkv"
     And "/media/tv/Breaking Bad (2008)" exists with a valid metadata file
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound
 
   Scenario: Parent folder name is preferred over filename
     Given the file is at "/input/tv/Severance 2022/breaking.bad.s03e05.mkv"
     And "/media/tv/Severance (2022)" exists with a valid metadata file
-    When the matching service is called
+    When IKnownSeriesLocator is called
     Then the result is KnownSeriesFound with series name "Severance"
 ```
 
@@ -161,7 +161,7 @@ Feature: Known series matching in /media/tv
 ## Subtasks
 
 - [ ] Define `KnownSeriesMatchResult`, `KnownSeriesFound`, `KnownSeriesAmbiguous`, `KnownSeriesNotFound`, `KnownSeriesCandidate` in `Scoutarr.Core`
-- [ ] Define the new service interface in `Scoutarr.Core`
+- [ ] Define `IKnownSeriesLocator` interface in `Scoutarr.Core`
 - [ ] Black Widow writes tests in red (all scenarios above)
-- [ ] Tony Stark implements the service
+- [ ] Tony Stark implements `KnownSeriesLocator`
 - [ ] Hawkeye reviews
