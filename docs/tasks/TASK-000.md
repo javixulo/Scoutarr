@@ -120,9 +120,13 @@ public abstract record DomainError(string Reason, string Detail);
 - Respond to MCP protocol handshake (capability negotiation) with an empty tool list.
 - Have no actual tools yet — those come in UC-01 onwards.
 
-### 8. Dockerfile
+### 8. Dockerfile and docker-compose.yml
 
-Multi-stage build:
+> **Owner: Jarvis.** Tony Stark must have the solution compiling and the `/health` endpoint responding before Jarvis picks this up.
+
+Jarvis delivers:
+
+**Dockerfile** — multi-stage build:
 
 ```
 Stage 1 — build
@@ -145,13 +149,11 @@ Stage 2 — runtime
     ENTRYPOINT: dotnet Scoutarr.Api.dll (or a wrapper script if both Api and Mcp run in the same container)
 ```
 
-> Note for Tony Stark: decide at implementation time whether Api and Mcp run as a single process sharing a host or as two separate processes in the same container. Document the decision in a comment in the Dockerfile. Either approach is acceptable for MVP.
+> Note for Jarvis: decide at implementation time whether Api and Mcp run as a single process sharing a host or as two separate processes in the same container. Document the decision in a comment in the Dockerfile. Either approach is acceptable for MVP.
 
-### 9. docker-compose.yml (example / development)
+**docker-compose.yml** — at repo root, matching the example in ARCHITECTURE.md section 4, with all five volume mounts and all environment variables.
 
-Provide a `docker-compose.yml` at the repo root matching the example in ARCHITECTURE.md section 4, with all five volume mounts and all environment variables.
-
-### 10. Smoke tests
+### 9. Smoke tests
 
 One smoke test per test project to verify the solution is wired correctly:
 
@@ -164,18 +166,23 @@ One smoke test per test project to verify the solution is wired correctly:
 
 ## Notes for Black Widow
 
-- Write the smoke tests described in section 10 in red before Tony Stark touches any code.
+- Write the smoke tests described in section 9 in red before Tony Stark touches any code.
 - For `Api.Tests` and `Mcp.Tests`, use `WebApplicationFactory<T>` — do not spin up a real HTTP server.
 - For `E2E.Tests`, the test must build the Docker image locally and start a container with `Process` or `Testcontainers` (preferred). The container must be stopped and removed in test teardown regardless of outcome.
-- Do not test configuration binding beyond what is in section 10 — that is Tony Stark's responsibility to get right, not a test surface.
+- Do not test configuration binding beyond what is in section 9 — that is Tony Stark's responsibility to get right, not a test surface.
 
 ## Notes for Tony Stark
 
 - Target the latest .NET LTS at time of implementation.
 - Use `Microsoft.Extensions.Logging` in Core — no Serilog dependency in Core itself. Wire Serilog (or equivalent) only in the host projects.
 - `IFileSystem` real implementation (`PhysicalFileSystem`) wraps `System.IO` — keep it thin, no logic.
+- Responsibility ends when the solution compiles, all C# smoke tests are green, and the `/health` endpoint responds in-process. Jarvis takes it from there.
+
+## Notes for Jarvis
+
 - The Dockerfile must produce a working image with `docker build -t scoutarr .` from the repo root — no extra scripts required.
-- Verify that `docker run --rm -p 8080:8080 scoutarr` responds to `GET /health` before marking this task done.
+- Verify that `docker run --rm -p 8080:8080 -e TMDB_API_KEY=test scoutarr` responds to `GET /health` with `200 OK` before marking this task done.
+- The E2E smoke test depends on the image existing locally — coordinate with Black Widow so the test uses `docker build` as part of its setup if needed.
 
 ---
 
@@ -222,7 +229,7 @@ Feature: Project bootstrap
     Given the repository is cloned
     When `docker build -t scoutarr .` is run from the repo root
     Then the image builds successfully
-    And `docker run --rm -p 8080:8080 scoutarr` responds to GET /health with 200 OK
+    And `docker run --rm -p 8080:8080 -e TMDB_API_KEY=test scoutarr` responds to GET /health with 200 OK
 ```
 
 ---
@@ -239,6 +246,6 @@ Feature: Project bootstrap
 - [ ] Tony Stark scaffolds MCP handshake in `Scoutarr.Mcp`
 - [ ] Black Widow writes smoke tests in red
 - [ ] Tony Stark makes smoke tests green
-- [ ] Tony Stark writes Dockerfile and docker-compose.yml
-- [ ] Tony Stark verifies `docker build` + `docker run /health` manually
+- [ ] Jarvis writes Dockerfile and docker-compose.yml
+- [ ] Jarvis verifies `docker build` + `docker run /health` manually
 - [ ] Hawkeye reviews
