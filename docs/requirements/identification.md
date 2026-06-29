@@ -52,7 +52,7 @@ Additional heuristics will be added over time as new edge cases are identified.
 The disambiguation behaviour differs between interfaces:
 
 **MCP Server** — initiates a conversational disambiguation flow:
-- The AI agent asks the user targeted questions to narrow down the candidates (e.g. year, original language, genre).
+- The AI agent asks the user targeted questions to narrow down the candidates (e.g. year, original language).
 - The process continues iteratively until a candidate exceeds the confidence threshold.
 - The user can cancel the operation at any point.
 - If the user cancels, the operation is aborted and no files are modified.
@@ -68,7 +68,6 @@ To select a specific candidate from a previous response, the caller repeats the 
 The caller may provide the following optional parameters at request time to assist identification:
 - **Year** — the release year of the movie or series.
 - **Original language** — the original language of the content (e.g. `en`, `es`, `ja`).
-- **Genre** — the genre of the content (e.g. drama, animation, thriller).
 - **candidateIndex** — 1-based index of a candidate from a previous disambiguation response. When provided, skips search and scoring and uses the selected candidate directly.
 
 ---
