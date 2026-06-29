@@ -9,9 +9,10 @@
 
 This task automates the build, test, and publish lifecycle using GitHub Actions. The repository is public, so Actions minutes are unlimited.
 
-Two workflows:
-- **CI** — runs on every pull request; must pass before merging.
-- **CD** — runs on every merge to `main`; builds the Docker image and pushes it to GitHub Container Registry (`ghcr.io`).
+Three workflows following the branching strategy defined in ARCHITECTURE.md section 4:
+- **CI** — runs on every pull request targeting `dev`; must pass before merging.
+- **CD edge** — runs on every merge to `dev`; builds and publishes the `edge` image for local pre-release testing.
+- **CD release** — runs when a `v*` tag is pushed to `main`; builds and publishes the versioned release image.
 
 E2E tests run as part of CD, not CI, because they require a built Docker image.
 
@@ -21,7 +22,7 @@ E2E tests run as part of CD, not CI, because they require a built Docker image.
 
 ### 1. CI workflow — `.github/workflows/ci.yml`
 
-Trigger: `pull_request` targeting `main`.
+Trigger: `pull_request` targeting `dev`.
 
 Steps:
 1. Checkout
@@ -32,9 +33,9 @@ Steps:
 
 The CI workflow must not push any image or artifact.
 
-### 2. CD workflow — `.github/workflows/cd.yml`
+### 2. CD edge workflow — `.github/workflows/cd-edge.yml`
 
-Trigger: `push` to `main`.
+Trigger: `push` to `dev`.
 
 Steps:
 1. Checkout
@@ -42,19 +43,35 @@ Steps:
 3. `dotnet restore Scoutarr.sln`
 4. `dotnet build Scoutarr.sln --no-restore --configuration Release`
 5. `dotnet test Scoutarr.sln --no-build --configuration Release` — unit and integration tests only; fail fast if any test fails
-6. Log in to `ghcr.io` using `GITHUB_TOKEN` (no extra secrets needed for public repos)
-7. `docker build -t ghcr.io/<owner>/scoutarr:<tag> .` — tag with both the git SHA and `latest`
-8. `docker push ghcr.io/<owner>/scoutarr:<sha>`
-9. `docker push ghcr.io/<owner>/scoutarr:latest`
-10. Run E2E tests (`Scoutarr.E2E.Tests`) against the locally built image — the image is available from step 7, no pull needed
-11. If E2E tests fail, the CD job fails but the image has already been pushed; Jarvis must decide whether to retag or leave `latest` as-is. Document this decision in a comment in the workflow.
+6. Log in to `ghcr.io` using `GITHUB_TOKEN`
+7. `docker build -t ghcr.io/javixulo/scoutarr:edge -t ghcr.io/javixulo/scoutarr:<sha> .`
+8. `docker push ghcr.io/javixulo/scoutarr:edge`
+9. `docker push ghcr.io/javixulo/scoutarr:<sha>`
+10. Run E2E tests (`Scoutarr.E2E.Tests`) against the locally built image
 
-### 3. Branch protection
+### 3. CD release workflow — `.github/workflows/cd-release.yml`
 
-Document in a comment in `ci.yml` that the following branch protection rules should be enabled on `main` by the project owner (cannot be set via workflow files):
-- Require status checks to pass before merging: `ci` workflow
+Trigger: `push` of a tag matching `v*` (e.g. `v0.1.0`).
+
+Steps:
+1. Checkout
+2. Setup .NET (latest LTS)
+3. `dotnet restore Scoutarr.sln`
+4. `dotnet build Scoutarr.sln --no-restore --configuration Release`
+5. `dotnet test Scoutarr.sln --no-build --configuration Release` — unit and integration tests only; fail fast if any test fails
+6. Log in to `ghcr.io` using `GITHUB_TOKEN`
+7. `docker build -t ghcr.io/javixulo/scoutarr:<tag> -t ghcr.io/javixulo/scoutarr:latest .` — `<tag>` is the pushed git tag (e.g. `v0.1.0`)
+8. `docker push ghcr.io/javixulo/scoutarr:<tag>`
+9. `docker push ghcr.io/javixulo/scoutarr:latest`
+10. Run E2E tests (`Scoutarr.E2E.Tests`) against the locally built image
+11. If E2E tests fail, the workflow fails but the image has already been pushed. Document in a comment in the workflow how to handle a bad release (e.g. retag `latest` to the previous SHA manually).
+
+### 4. Branch protection
+
+Document in a comment in `ci.yml` that the following branch protection rules should be enabled by the project owner (cannot be set via workflow files):
+- On `dev`: require CI to pass before merging any PR
+- On `main`: allow only project owner to push or merge; no direct pushes
 - Require branches to be up to date before merging
-- Do not allow bypassing the above settings
 
 ---
 
@@ -63,9 +80,10 @@ Document in a comment in `ci.yml` that the following branch protection rules sho
 - Use `actions/checkout@v4` and `actions/setup-dotnet@v4` (or latest stable at time of implementation).
 - Pin all third-party actions to a specific SHA, not a mutable tag, to avoid supply chain issues.
 - The `GITHUB_TOKEN` is automatically available in Actions — no manual secret setup needed for pushing to `ghcr.io` on a public repo.
-- To exclude E2E tests from CI/unit runs, use `--filter 'FullyQualifiedName!~E2E'` or a test category attribute — coordinate with Black Widow on which approach is used in `Scoutarr.E2E.Tests`.
-- The Docker image tag should be `ghcr.io/javixulo/scoutarr` (lowercase owner, lowercase repo).
-- Verify the published image is publicly visible at `ghcr.io/javixulo/scoutarr:latest` after the first CD run.
+- To exclude E2E tests from CI runs, use `--filter 'FullyQualifiedName!~E2E'` or a test category attribute — coordinate with Black Widow on which approach is used in `Scoutarr.E2E.Tests`.
+- The Docker image name is `ghcr.io/javixulo/scoutarr` (lowercase owner, lowercase repo).
+- The E2E tests in CD need a `TMDB_API_KEY` — add it as a repository secret named `TMDB_API_KEY_TEST` and pass it to the test run via environment variable.
+- Verify the `edge` image is publicly visible at `ghcr.io/javixulo/scoutarr:edge` after the first CD edge run.
 
 ---
 
@@ -75,30 +93,39 @@ Document in a comment in `ci.yml` that the following branch protection rules sho
 Feature: CI/CD pipeline
   As any agent or project owner
   I want automated build, test, and publish workflows
-  So that every PR is validated and every merge to main produces a published image
+  So that every PR is validated and every merge produces the correct image
 
-  Scenario: CI passes on a clean PR
-    Given a pull request targeting main
+  Scenario: CI passes on a clean PR to dev
+    Given a pull request targeting dev
     When the CI workflow runs
     Then dotnet restore, build, and unit+integration tests all pass
     And no Docker image is built or pushed
 
   Scenario: CI fails if any unit or integration test fails
-    Given a pull request targeting main
+    Given a pull request targeting dev
     And at least one unit or integration test is failing
     When the CI workflow runs
     Then the CI workflow exits with a failure status
     And the PR cannot be merged
 
-  Scenario: CD publishes image on merge to main
-    Given a merge to main with all tests passing
-    When the CD workflow runs
+  Scenario: CD edge publishes edge image on merge to dev
+    Given a merge to dev with all tests passing
+    When the CD edge workflow runs
     Then the Docker image is built
-    And pushed to ghcr.io/javixulo/scoutarr with both the git SHA tag and latest
-    And the image is publicly accessible
+    And pushed to ghcr.io/javixulo/scoutarr:edge
+    And pushed to ghcr.io/javixulo/scoutarr:<sha>
+    And both tags are publicly accessible
+
+  Scenario: CD release publishes versioned image on v* tag
+    Given a v* tag pushed to main
+    When the CD release workflow runs
+    Then the Docker image is built
+    And pushed to ghcr.io/javixulo/scoutarr:<tag>
+    And pushed to ghcr.io/javixulo/scoutarr:latest
+    And both tags are publicly accessible
 
   Scenario: CD fails if E2E tests fail
-    Given a merge to main
+    Given a merge to dev or a v* tag push
     And the E2E tests fail against the built image
     When the CD workflow runs
     Then the CD workflow exits with a failure status
@@ -114,8 +141,11 @@ Feature: CI/CD pipeline
 ## Subtasks
 
 - [ ] Jarvis writes `.github/workflows/ci.yml`
-- [ ] Jarvis writes `.github/workflows/cd.yml`
-- [ ] Jarvis verifies CI passes on a test PR
-- [ ] Jarvis verifies CD publishes image to ghcr.io on a merge to main
-- [ ] Project owner enables branch protection rules on main
+- [ ] Jarvis writes `.github/workflows/cd-edge.yml`
+- [ ] Jarvis writes `.github/workflows/cd-release.yml`
+- [ ] Project owner adds `TMDB_API_KEY_TEST` as a repository secret
+- [ ] Jarvis verifies CI passes on a test PR to dev
+- [ ] Jarvis verifies CD edge publishes `edge` image on merge to dev
+- [ ] Jarvis verifies CD release publishes versioned image on a `v*` tag
+- [ ] Project owner enables branch protection rules on `dev` and `main`
 - [ ] Hawkeye reviews
