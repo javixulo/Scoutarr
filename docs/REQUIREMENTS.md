@@ -50,12 +50,13 @@ Log entries must include:
 
 ## Deployment
 
-- Distributed as a Docker image.
+- Distributed as a Docker image published to GitHub Container Registry (`ghcr.io/javixulo/scoutarr`).
 - Intended to be added to an existing `docker-compose.yml` alongside other media tools.
 - Media folders are mounted as volumes.
 - AI agent clients must be able to discover and connect to the MCP server once the container is running.
+- Pre-release testing is done locally using the `edge` image tag, built automatically from the `dev` branch. No merge to `main` is required until a version is considered ready for release.
 
-> For the technical implementation of deployment (volume structure, MCP transport, client configuration), see [ARCHITECTURE.md](ARCHITECTURE.md).
+> For the technical implementation of deployment (volume structure, MCP transport, client configuration, branching strategy, image tags), see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 

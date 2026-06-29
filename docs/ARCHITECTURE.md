@@ -112,12 +112,44 @@ Scoutarr uses five mount points inside the container:
 - In **Identify mode**, only `/input` is read. The destination volumes are never touched.
 - In **Rename mode**, files are moved from `/input/movies` or `/input/tv` to the appropriate destination volume.
 
+### Branching strategy and image tags
+
+Scoutarr uses a two-branch model. No image is published to `latest` until the project owner explicitly decides a version is ready for release.
+
+| Branch | Trigger | Image tag | Purpose |
+|--------|---------|-----------|--------|
+| `dev` | push to `dev` | `edge` | Pre-release testing — local use only, may be unstable |
+| `main` | push of a `v*` tag (e.g. `v0.1.0`) | `v0.1.0` + `latest` | Public release — only when the project owner tags |
+
+**Development flow:**
+1. All feature branches are merged into `dev` via pull request.
+2. CI runs on every PR (unit + integration tests).
+3. On merge to `dev`, CD builds the image and publishes it as `edge` to `ghcr.io/javixulo/scoutarr:edge`. This image is used for local pre-release testing.
+4. When a version is considered release-ready, the project owner merges `dev` into `main` and pushes a `v*` tag.
+5. CD detects the tag, builds the image, and publishes it as both `ghcr.io/javixulo/scoutarr:<tag>` and `ghcr.io/javixulo/scoutarr:latest`.
+
+**Local testing with the `edge` image:**
+```yaml
+services:
+  scoutarr:
+    image: ghcr.io/javixulo/scoutarr:edge
+    # ... rest of config
+```
+
+**Production use with a pinned release:**
+```yaml
+services:
+  scoutarr:
+    image: ghcr.io/javixulo/scoutarr:v0.1.0
+    # ... rest of config
+```
+
 ### docker-compose.yml example
 
 ```yaml
 services:
   scoutarr:
-    image: scoutarr:latest
+    image: ghcr.io/javixulo/scoutarr:latest
     container_name: scoutarr
     environment:
       - TMDB_API_KEY=your_key_here
@@ -668,4 +700,4 @@ All heuristics implement `IEpisodeHeuristic.TryParse(EpisodeParseContext)` → `
 
 ### External dependency added in UC-05
 
-`MediaInfo.Wrapper.Core` (NuGet) is added to `Scoutarr.Core` to read file duration upstream before invoking the heuristic chain. The duration is placed in `EpisodeParseContext.FileDuration`. On Linux/Docker, requires system packages `libzen0v5 libmms0 zlib1g libnghttp2-14 librtmp1 libcurl4` (see TASK-023).
+`MediaInfo.Wrapper.Core` (NuGet) is added to `Scoutarr.Core` to read file duration upstream before invoking the heuristic chain. The duration is placed in `EpisodeParseContext.FileDuration`. On Linux/Docker, requires system packages `libzen0v5 libmms0 zlib1g libnghttp2-14 librtmp1 libcurl4` (see TASK-000).
