@@ -78,7 +78,7 @@ Cross-platform (.NET 6+, Linux/Docker). On Linux, requires system packages:
 apt-get install libzen0v5 libmms0 zlib1g libnghttp2-14 librtmp1 libcurl4
 ```
 
-These must be included in the Docker image (see TASK-023).
+These must be included in the Docker image (see TASK-000).
 
 Usage in the orchestrator:
 ```csharp
@@ -131,7 +131,7 @@ TryParse(EpisodeParseContext context)
 - Season token detection must be a regex applied to the filename before any other processing.
 - Register H3 immediately after H2 in the DI registration of `TvEpisodeNumberParser`.
 - Add `MediaInfo.Wrapper.Core` NuGet reference to `Scoutarr.Core`.
-- Add required Linux system packages to the Dockerfile (coordinate with TASK-023).
+- Add required Linux system packages to the Dockerfile (coordinate with TASK-000).
 
 ---
 
@@ -235,7 +235,7 @@ Feature: H3 — Special episode identification by file duration
 ## Subtasks
 
 - [ ] Add `MediaInfo.Wrapper.Core` NuGet reference to `Scoutarr.Core`
-- [ ] Add MediaInfo Linux system packages to Dockerfile (coordinate with TASK-023)
+- [ ] Add MediaInfo Linux system packages to Dockerfile (coordinate with TASK-000)
 - [ ] Implement `SpecialEpisodeDurationHeuristic` in `Scoutarr.Core`
 - [ ] Register H3 after H2 in `TvEpisodeNumberParser` DI registration
 - [ ] Black Widow writes tests in red (all scenarios above)

@@ -8,6 +8,8 @@
 
 After a series folder is successfully identified, Scoutarr writes a JSON metadata file to the root series folder. On subsequent passes, that file is read instead of re-identifying the series, and its data is used to validate incoming episodes against known season and episode counts.
 
+> **Note:** UC2-TASK-009 / UC2-TASK-010 (single TV episode, REST and MCP) already write this same metadata file using the minimal write path of `ISeriesMetadataService`, since a single-episode operation creates or updates the same file a folder pass would (see [file-handling.md](../requirements/file-handling.md) — "Series state"). If that minimal write path was implemented as part of UC-02, this task extends the existing `ISeriesMetadataService` rather than creating it from scratch — reuse the existing `SeriesMetadata` / `SeasonMetadata` / `EpisodeMetadata` types and writer, and add the read, refresh, and validation behaviour described below on top of them.
+
 This task covers:
 
 - Writing the metadata file after a successful series identification
@@ -143,7 +145,7 @@ Series and season status is fetched from the `/3/tv/{series_id}` endpoint, which
 
 ## Notes for Tony Stark
 
-- Implement `ISeriesMetadataService` and `SeriesMetadataService` in `Scoutarr.Core`.
+- Implement `ISeriesMetadataService` and `SeriesMetadataService` in `Scoutarr.Core` — or extend it, if the write path already exists from UC2-TASK-009/UC2-TASK-010.
 - Filename format: `{Series Title} ({Year}).json`, written to the root series folder.
 - Depends on `IFileSystem` and `ITmdbClient`.
 - Use `System.Text.Json` for serialisation — consistent with the rest of the project.
@@ -252,9 +254,9 @@ Feature: Series metadata file
 
 ## Subtasks
 
-- [ ] Define `SeriesMetadata`, `SeasonMetadata`, and `EpisodeMetadata` records in `Scoutarr.Core`
+- [ ] Define `SeriesMetadata`, `SeasonMetadata`, and `EpisodeMetadata` records in `Scoutarr.Core` (reuse from UC-02 if already defined there)
 - [ ] Define `SeriesMetadataReadResult` discriminated union in `Scoutarr.Core`
-- [ ] Define `ISeriesMetadataService` interface in `Scoutarr.Core`
+- [ ] Define `ISeriesMetadataService` interface in `Scoutarr.Core` (reuse/extend from UC-02 if already defined there)
 - [ ] Extend `ITmdbClient` with season-level episode list fetching if not already present from UC-02
 - [ ] Black Widow writes tests in red (all scenarios above)
 - [ ] Tony Stark implements `SeriesMetadataService`

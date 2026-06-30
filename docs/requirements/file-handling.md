@@ -136,13 +136,13 @@ When renaming the root series folder, two conflict scenarios must be handled:
 
 ## Series state
 
-After a series is identified successfully — in either Identify or Rename mode — a metadata file is written to the root series folder. For a single TV episode, no metadata file is written — this is deferred to UC-03 (series folder operations).
+After a series is identified successfully, a metadata file is written to the root series folder — both for a single TV episode (UC-02) and for a series folder operation (UC-03), in either Identify or Rename mode. A single episode therefore creates (or updates) the same metadata file that a full series-folder pass would, so that later operations — whether on the same episode, another episode of the same series, or the whole folder — can rely on it being present.
 
 ### Metadata file
 
 - Format: JSON.
 - Filename: `{Series Name} ({Year}).json` (e.g. `Breaking Bad (2008).json`), written to the root series folder.
-- Written after a successful series identification for a series folder operation, in both Identify and Rename mode.
+- Written after a successful series identification, for both single TV episode and series folder operations, in both Identify and Rename mode.
 - If the metadata file is incorrect, the user deletes it and runs the operation again.
 
 The metadata file contains:
