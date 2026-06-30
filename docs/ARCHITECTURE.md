@@ -290,7 +290,7 @@ The confidence scoring formula (60% title similarity / 30% year match / 10% popu
 
 After UC-01, `ITmdbClient` has:
 - `SearchMovieAsync(string title, int? year, ...)` → list of movie candidates
-- `GetMovieDetailsAsync(int movieId)` → enriched movie details (director, cast, collection, genres)
+- `GetMovieDetailsAsync(int movieId)` → enriched movie details (director, cast, collection)
 
 UC-02 adds:
 - `SearchTvShowAsync(string title, int? year, ...)` → list of TV show candidates
@@ -385,7 +385,7 @@ This section summarises what is implemented and available after UC-02 (rename a 
 | `TvFormatterInput` | Input for episode filename formatter | **Reused directly** |
 | `TvEpisodeMoveSuccess` | Move result including destination path and subtitles | **Reused directly** |
 | `TvShowDetails` | Season/episode structure from TMDB | **Reused directly** |
-| `TvShowEnrichment` | Creator, cast, network, genres, status from TMDB | **Reused directly** |
+| `TvShowEnrichment` | Creator, cast, network, status from TMDB | **Reused directly** |
 | `SubtitleMove` | Source and destination of a moved subtitle file | **Reused directly** |
 | Shared domain error model | Reason + detail | **Reused directly** |
 
@@ -398,7 +398,7 @@ After UC-02, `ITmdbClient` has:
 - `GetMovieDetailsAsync` → enriched movie details
 - `SearchTvShowAsync` → list of TV show candidates
 - `GetTvShowDetailsAsync` → season/episode structure
-- `GetTvShowEnrichmentAsync` → creator, cast, network, genres, status
+- `GetTvShowEnrichmentAsync` → creator, cast, network, status
 - `GetEpisodeDetailsAsync` → episode title
 
 UC-03 may add:
@@ -514,7 +514,7 @@ After UC-03, `ITmdbClient` has:
 - `GetMovieDetailsAsync` → enriched movie details
 - `SearchTvShowAsync` → list of TV show candidates
 - `GetTvShowDetailsAsync` → season/episode structure and series status
-- `GetTvShowEnrichmentAsync` → creator, cast, network, genres, status
+- `GetTvShowEnrichmentAsync` → creator, cast, network, status
 - `GetEpisodeDetailsAsync` → episode title
 - `GetTvSeasonDetailsAsync(int tvId, int season)` → full episode list for a season including name, runtime, and air date per episode
 
