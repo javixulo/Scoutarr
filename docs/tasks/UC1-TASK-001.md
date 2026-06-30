@@ -7,11 +7,12 @@
 
 ## Context
 
-Before querying TMDB, Scoutarr must parse a dirty movie filename and extract three pieces of structured data:
+Before querying TMDB, Scoutarr must parse a dirty movie filename and extract four pieces of structured data:
 
 - **Title** — required; used as the primary TMDB search query.
 - **Year** — optional; used to narrow the TMDB search when present.
 - **Resolution** — optional; stored for use in the output filename template.
+- **Edition** — optional; e.g. `Director's Cut`, `Extended`, `Unrated`, `Theatrical`, `Remastered`. TMDB does not expose edition/alternate-version data for movies, so this is detected purely from a fixed list of filename keywords (no TMDB call involved).
 
 The release group tag (e.g. `-YIFY`, `[YIFY]`) must be identified and discarded.
 
@@ -27,6 +28,7 @@ ParsedMovieFilename
     Title:        string        // never null or empty on success
     Year:         int?          // null if not found or not parseable
     Resolution:   string?       // null if not found; normalised (e.g. "4K" not "2160p")
+    Edition:      string?       // null if no recognised edition keyword is found; normalised display form (e.g. "Director's Cut")
     ReleaseGroup: string?       // null if not found
 }
 ```
@@ -48,6 +50,8 @@ On failure: a domain error describing why parsing failed (empty filename, no ext
 - Normalise `2160p` → `"4K"` in the output.
 - Year must be a plausible 4-digit number but no range validation — if TMDB can't find it, that's TMDB's problem, not the parser's.
 - Release group detection: strip the `-GROUP` suffix and `[GROUP]` bracket patterns at the end of the stem, after all other tokens are consumed.
+- Edition detection: match against a fixed keyword table (case-insensitive, separators `.`/`_`/` ` normalised to spaces), e.g. `DIRECTORS CUT` / `DIRECTOR'S CUT` → `"Director's Cut"`, `EXTENDED` / `EXTENDED EDITION` / `EXTENDED CUT` → `"Extended"`, `UNRATED` → `"Unrated"`, `THEATRICAL` / `THEATRICAL CUT` → `"Theatrical"`, `REMASTERED` → `"Remastered"`, `ULTIMATE EDITION` → `"Ultimate Edition"`, `SPECIAL EDITION` → `"Special Edition"`. Keep the table easy to extend — new edition keywords will surface over time, the same way release-group conventions do.
+- Edition tokens must be consumed like any other noise token (similar to `PROPER`/`REPACK`) and must never leak into the extracted title.
 
 ---
 
@@ -146,6 +150,41 @@ Feature: Movie filename parser
     And the resolution is null
 
   # ─────────────────────────────────────────
+  # EDITION DETECTION
+  # ─────────────────────────────────────────
+
+  Scenario: Director's Cut edition detected
+    Given the filename "Blade.Runner.1982.Directors.Cut.1080p.mkv"
+    When the filename is parsed
+    Then the title is "Blade Runner"
+    And the year is 1982
+    And the edition is "Director's Cut"
+
+  Scenario: Extended edition detected
+    Given the filename "The.Lord.of.the.Rings.2001.EXTENDED.1080p.BluRay.mkv"
+    When the filename is parsed
+    Then the title is "The Lord of the Rings"
+    And the year is 2001
+    And the edition is "Extended"
+
+  Scenario: Unrated edition detected
+    Given the filename "Superbad.2007.UNRATED.720p.mkv"
+    When the filename is parsed
+    Then the title is "Superbad"
+    And the edition is "Unrated"
+
+  Scenario: No edition keyword present
+    Given the filename "The.Batman.2022.1080p.BluRay.mkv"
+    When the filename is parsed
+    Then the edition is null
+
+  Scenario: Edition keyword does not leak into the title
+    Given the filename "Close.Encounters.of.the.Third.Kind.1977.Directors.Cut.1080p.mkv"
+    When the filename is parsed
+    Then the title is "Close Encounters of the Third Kind"
+    And the edition is "Director's Cut"
+
+  # ─────────────────────────────────────────
   # UNUSUAL TOKEN ORDER
   # ─────────────────────────────────────────
 
@@ -169,6 +208,7 @@ Feature: Movie filename parser
     Then the title is "The Batman"
     And the year is 2022
     And the resolution is "1080p"
+    And the edition is "Extended"
 
   Scenario: Multiple noise tokens scattered through filename
     Given the filename "The.Batman.2022.PROPER.REPACK.1080p.BluRay.x264-GROUP.mp4"
@@ -243,8 +283,9 @@ Feature: Movie filename parser
 
 ## Subtasks
 
-- [ ] Define `ParsedMovieFilename` record in `Scoutarr.Core`
+- [ ] Define `ParsedMovieFilename` record in `Scoutarr.Core` (including `Edition`)
 - [ ] Define `IMovieFilenameParser` interface in `Scoutarr.Core`
+- [ ] Define the edition keyword table (Director's Cut, Extended, Unrated, Theatrical, Remastered, Ultimate Edition, Special Edition — extensible)
 - [ ] Black Widow writes tests in red (all scenarios above)
 - [ ] Tony Stark implements `MovieFilenameParser`
 - [ ] Hawkeye reviews
