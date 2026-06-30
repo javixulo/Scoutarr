@@ -2,8 +2,9 @@
 
 **Requirements:** [requirements/interfaces.md](../requirements/interfaces.md) — "MCP Server", "Responses and notifications"
 **Requirements:** [requirements/identification.md](../requirements/identification.md) — "Disambiguation flow"
+**Requirements:** [requirements/file-handling.md](../requirements/file-handling.md) — "Series state"
 **Requirements:** [ARCHITECTURE.md](../ARCHITECTURE.md) — "MCP Server"
-**Dependencies:** UC2-TASK-004 (ITvShowIdentificationService), UC2-TASK-006 (ITvEpisodeLookupService), UC2-TASK-008 (ITvEpisodeMoveService)
+**Dependencies:** UC2-TASK-004 (ITvShowIdentificationService), UC2-TASK-006 (ITvEpisodeLookupService), UC2-TASK-008 (ITvEpisodeMoveService), UC3-TASK-002 (ISeriesMetadataService — write capability only; see note below)
 
 ---
 
@@ -13,6 +14,10 @@ Three MCP tools, all thin layers over Core services. The MCP layer is responsibl
 
 The TV episode flow spans two tools: `identify_series` first (with possible disambiguation), then `identify_episode` once the series is confirmed.
 
+After a successful series identification (`identify_series`, `identify_episode`, or `rename_episode`), the orchestrator writes the series metadata file to the root series folder via `ISeriesMetadataService`, per [file-handling.md](../requirements/file-handling.md) — "Series state". This applies even for a single episode: a single-episode operation creates or updates the same metadata file that a full series-folder pass (UC-03) would.
+
+> **Note on sequencing:** `ISeriesMetadataService` is fully specified in UC3-TASK-002, including read, refresh, and validation logic that only make sense once folder-level passes exist. UC-02 only needs the **write** path. This task (and UC2-TASK-009) should implement or stub the minimal write capability needed for UC-02, and UC3-TASK-002 then extends it with read/refresh/validation for UC-03. If UC3-TASK-002 is implemented first, UC-02 simply reuses the existing service instead.
+
 ---
 
 ## Tools
@@ -21,10 +26,10 @@ The TV episode flow spans two tools: `identify_series` first (with possible disa
 Identifies the TV series. Returns a confirmed match (with enriched metadata) or a disambiguation result.
 
 ### `identify_episode`
-Given a confirmed series `tvId`, identifies the episode and returns the suggested output filename.
+Given a confirmed series `tvId`, identifies the episode and returns the suggested output filename. On a confirmed match, writes the series metadata file to the root series folder.
 
 ### `rename_episode`
-Identifies series and episode, then moves the file to `/media/tv`.
+Identifies series and episode, then moves the file to `/media/tv`. On success, writes (or updates) the series metadata file to the root series folder.
 
 ---
 
@@ -134,15 +139,15 @@ The `instructions` field is always present in the tool result. Key scenarios:
 
 ## Notes for Black Widow
 
-- Mock `ITvShowIdentificationService`, `ITvEpisodeLookupService`, `ITvEpisodeMoveService`, and `ITmdbClient`.
+- Mock `ITvShowIdentificationService`, `ITvEpisodeLookupService`, `ITvEpisodeMoveService`, `ISeriesMetadataService`, and `ITmdbClient`.
 - Test confirmed series match: enrichment is fetched, `disambiguationNeeded` is false, `instructions` present.
 - Test disambiguation: `disambiguationNeeded` is true, candidates are enriched, `instructions` present, no numbered list instruction included.
 - Test that `tvId` in parameters bypasses identification and returns confirmed match directly.
-- Test confirmed episode: suggested filename returned, `instructions` present.
-- Test rename success: destination path and subtitles in result, `instructions` present.
+- Test confirmed episode: suggested filename returned, `instructions` present, series metadata file is written.
+- Test rename success: destination path and subtitles in result, `instructions` present, series metadata file is written (or updated).
 - Test business error: `isError` true, plain language message.
 - E2E: disambiguation flow — agent receives candidates, user selects via natural question, retry with `tvId` succeeds.
-- E2E: full happy path — identify series, identify episode, rename episode.
+- E2E: full happy path — identify series, identify episode, rename episode, metadata file present on disk afterwards.
 
 ## Notes for Tony Stark
 
@@ -151,6 +156,7 @@ The `instructions` field is always present in the tool result. Key scenarios:
 - Enrich disambiguation candidates with `overview`, `originalLanguage`, `firstAirDate`, and `network` — one TMDB call per candidate, max 10.
 - Extend the MCP server system prompt with the TV episode section defined above.
 - `instructions` must always be present — never omit it even on error.
+- Call `ISeriesMetadataService` to write the metadata file after a successful series match in `identify_episode` and `rename_episode`.
 
 ---
 
@@ -196,6 +202,7 @@ Feature: MCP Server — TV episode tools
     And a call to identify_episode with filename "breaking.bad.s01e01.mkv"
     When the tool is called
     Then the suggested filename is returned
+    And the series metadata file is written to the root series folder
     And the instructions field tells the agent to present the filename and offer to rename
 
   Scenario: rename_episode — success
@@ -203,6 +210,7 @@ Feature: MCP Server — TV episode tools
     When rename_episode is called
     Then the destination path is returned
     And any moved subtitle files are listed
+    And the series metadata file is written (or updated) in the root series folder
     And the instructions field tells the agent to confirm the rename to the user
 
   Scenario: Business error — no TMDB results
@@ -221,6 +229,7 @@ Feature: MCP Server — TV episode tools
 - [ ] Implement `identify_series` tool in `Scoutarr.Mcp`
 - [ ] Implement `identify_episode` tool in `Scoutarr.Mcp`
 - [ ] Implement `rename_episode` tool in `Scoutarr.Mcp`
+- [ ] Wire `ISeriesMetadataService` write into `identify_episode` and `rename_episode` after a successful series match
 - [ ] Extend MCP server system prompt with TV episode section
 - [ ] Black Widow writes tests in red (all scenarios above)
 - [ ] Black Widow writes E2E tests in red
