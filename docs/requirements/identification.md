@@ -1,3 +1,16 @@
+# Identification
+
+> Part of [Scoutarr Requirements](../REQUIREMENTS.md).
+
+---
+
+## Metadata source
+
+- Primary metadata source: TMDB.
+- TMDB is queried using the title and year extracted from the filename, plus any optional parameters provided by the caller.
+
+---
+
 ## Information extracted from the filename
 
 Before querying TMDB, Scoutarr parses the filename to extract:
@@ -31,3 +44,41 @@ Matches words extracted from the filename against episode titles stored in the s
 
 H2 through H5 all depend on the series metadata file produced for the series folder (see [file-handling.md](file-handling.md) — "Series state"); when no metadata file is available yet for a given operation, they return no result and the chain falls through. Additional heuristics may be added over time as new edge cases are identified.
 
+---
+
+## Confidence and automatic acceptance
+
+- Each TMDB candidate is assigned a confidence score.
+- If the top candidate exceeds the configured threshold, it is automatically accepted and the operation proceeds.
+- If no candidate exceeds the threshold, the disambiguation flow is triggered.
+
+---
+
+## Disambiguation flow
+
+The disambiguation behaviour differs between interfaces:
+
+**MCP Server** — initiates a conversational disambiguation flow:
+- The AI agent asks the user targeted questions to narrow down the candidates (e.g. year, original language).
+- The process continues iteratively until a candidate exceeds the confidence threshold.
+- The user can cancel the operation at any point.
+- If the user cancels, the operation is aborted and no files are modified.
+
+**REST API** — cannot support interactive disambiguation. When no candidate exceeds the confidence threshold, the API returns the top 10 candidates ranked by confidence score, along with their TMDB metadata (title, year, overview, original language), so the caller can present them to the user and retry.
+
+To select a specific candidate from a previous response, the caller repeats the same request and includes the `candidateIndex` parameter — a 1-based index into the candidate list returned by the previous call. For example, if the previous response returned 7 candidates and the user selects the third one, the caller retries with `candidateIndex: 3`. When `candidateIndex` is provided, the confidence threshold is bypassed and that candidate is used directly.
+
+---
+
+## Optional parameters
+
+The caller may provide the following optional parameters at request time to assist identification:
+- **Year** — the release year of the movie or series.
+- **Original language** — the original language of the content (e.g. `en`, `es`, `ja`).
+- **candidateIndex** — 1-based index of a candidate from a previous disambiguation response. When provided, skips search and scoring and uses the selected candidate directly.
+
+---
+
+## No results
+
+If TMDB returns zero results for a given query, the operation is aborted and an error is returned to the user. No disambiguation flow is initiated. The user should verify the filename or provide additional parameters and retry.
