@@ -34,7 +34,7 @@ Identifies series and episode, then moves the file to `/media/tv`.
 When identifying a TV series and disambiguation is needed:
 - Never present a numbered list of candidates to the user.
 - Ask one focused, natural question at a time using the enriched candidate data.
-- Use creator, cast, network, genre, and status information to phrase contextual questions.
+- Use creator, cast, network, and status information to phrase contextual questions.
 - Examples: "Is this the AMC series created by Vince Gilligan, or the BBC documentary series?",
   "Does this star Bryan Cranston and Aaron Paul?"
 - If the user explicitly cancels, confirm the cancellation and do not modify any files.
@@ -59,7 +59,7 @@ When an error occurs:
 ## Enrichment — series identification
 
 When `identify_series` returns a confirmed match, the MCP layer fetches:
-- Creator, Cast (top 5), Network, Genres, Status, Seasons (with episode counts)
+- Creator, Cast (top 5), Network, Status, Seasons (with episode counts)
 
 Season 0 (specials) is included in the `Seasons` list if present.
 
@@ -79,7 +79,6 @@ When disambiguation is needed, candidates are enriched with `overview`, `origina
   "year": 2008,
   "network": "AMC",
   "status": "Ended",
-  "genres": ["Crime", "Drama", "Thriller"],
   "creator": "Vince Gilligan",
   "topCast": ["Bryan Cranston", "Aaron Paul", "Anna Gunn", "Dean Norris", "Betsy Brandt"],
   "seasons": [

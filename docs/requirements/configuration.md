@@ -41,7 +41,7 @@ Templates follow a simple `{token}` syntax. Inspired by TinyMediaManager, the fo
 | Token | Description |
 |---|---|
 | `{series}` | Series title |
-| `{year}` | Series start year |
+| `{year}` | Series start year — always the year the series first aired, never the episode air year |
 | `{season}` | Season number (zero-padded, e.g. 01) |
 | `{episode}` | Episode number (zero-padded, e.g. 02) |
 | `{title}` | Episode title |

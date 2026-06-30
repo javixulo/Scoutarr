@@ -14,7 +14,7 @@
 
 The MCP server exposes two tools: `identify_movie` and `rename_movie`. These are thin wrappers over `IMovieIdentificationService` — but the disambiguation flow is fundamentally different from the REST API.
 
-When no candidate exceeds the confidence threshold, the MCP layer enriches the candidates with additional TMDB data (director, top cast, collection, genres) and returns a structured disambiguation result with an `instructions` field that guides the agent.
+When no candidate exceeds the confidence threshold, the MCP layer enriches the candidates with additional TMDB data (director, top cast, collection) and returns a structured disambiguation result with an `instructions` field that guides the agent.
 
 ---
 
@@ -35,8 +35,7 @@ Applies the rename to disk. Internally calls identify first.
   "filename": "Batman.mkv",
   "tmdbId": null,
   "year": null,
-  "originalLanguage": null,
-  "genre": null
+  "originalLanguage": null
 }
 ```
 
@@ -52,7 +51,7 @@ You are a media file identification assistant. You help users identify and renam
 When you receive a disambiguation result (disambiguationNeeded: true):
 - Never present a numbered list of candidates to the user.
 - Ask one focused, natural question at a time using the enriched candidate data.
-- Use director, cast, collection, and genre information to phrase contextual questions.
+- Use director, cast, and collection information to phrase contextual questions.
 - If the user explicitly cancels, confirm the cancellation and do not modify any files.
 
 When you receive a successful identification:
@@ -91,8 +90,7 @@ When you receive an error:
       "year": 2022,
       "director": "Matt Reeves",
       "topCast": ["Robert Pattinson", "Zoë Kravitz", "Jeffrey Wright"],
-      "collection": null,
-      "genres": ["Action", "Crime", "Drama"]
+      "collection": null
     }
   ]
 }
@@ -121,7 +119,7 @@ When you receive an error:
 - Implement `MovieMcpTools` in `Scoutarr.Mcp`.
 - Register the system prompt at startup.
 - Enrichment: call `ITmdbClient.GetMovieDetailsAsync` for each candidate when `MovieDisambiguationNeeded` is returned. Max 10 candidates.
-- Extract director (`job = "Director"`), top 3 cast by `order`, `belongs_to_collection.name`, genre names.
+- Extract director (`job = "Director"`), top 3 cast by `order`, `belongs_to_collection.name`.
 - Always include the `instructions` field in the disambiguation result.
 
 ---
@@ -147,7 +145,7 @@ Feature: MCP — identify and rename movie
     When the tool is called
     Then the result contains disambiguationNeeded true
     And the result contains a non-empty instructions field
-    And each candidate includes director, topCast, collection, and genres
+    And each candidate includes director, topCast, and collection
 
   Scenario: tmdbId bypasses disambiguation and returns success
     Given a call to identify_movie with filename "Batman.mkv" and tmdbId 414906
