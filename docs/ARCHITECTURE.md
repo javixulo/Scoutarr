@@ -262,6 +262,7 @@ This section summarises what is implemented and available after UC-01 (rename a 
 | `IMovieFilenameFormatter` | Formats output filename from template | Pattern to follow for `ITvFilenameFormatter` |
 | `IMovieIdentificationService` | Orchestrates parse → search → format | Pattern to follow for `ITvShowIdentificationService` |
 | `ITmdbClient` | TMDB HTTP client | **Reused and extended** — add `SearchTvShowAsync`, `GetTvShowDetailsAsync`, and `GetEpisodeDetailsAsync` |
+| `ISeriesMetadataService` | Writes series metadata to `{Series Name} ({Year}).json` | **New, write-only** — UC-02 only needs the write path (see "What UC-02 must build from scratch" below); UC-03 extends it with read, refresh, and validation |
 
 ---
 
@@ -342,6 +343,7 @@ The MCP server system prompt is extended to cover TV show and episode disambigua
 - `ITvEpisodeLookupService` / `TvEpisodeLookupService` — retrieves episode title from TMDB given confirmed series and episode number
 - `ITvFilenameFormatter` / `TvFilenameFormatter` — formats episode output filename
 - `ITvEpisodeMoveService` / `TvEpisodeMoveService` — moves episode and subtitles to correct destination, creates folder structure, cleans up empty directories
+- `ISeriesMetadataService` / `SeriesMetadataService` — **write-only** for now: persists `SeriesMetadata` to `{Series Name} ({Year}).json` in the series root folder after a successful series identification, in both Identify and Rename mode. A single episode operation writes/updates the same file a folder-level pass (UC-03) would (see [file-handling.md](requirements/file-handling.md) — "Series state"). Read, refresh, and validation are added later by UC-03 (section 9 below) on top of this same service.
 - REST controllers and MCP tools for TV series and episode operations
 
 ---
@@ -413,8 +415,8 @@ UC-03 may add:
 - Moving video and subtitle files with rollback on failure
 - Cleaning up empty source directories
 
-UC-03 reuses `ITvEpisodeMoveService` directly for each episode in the folder. UC-03 adds:
-- Series metadata file write (`{Series Name} ({Year}).json`) to the series root folder after a successful pass, in both Identify and Rename mode
+UC-03 reuses `ITvEpisodeMoveService` directly for each episode in the folder. The series metadata file write itself already exists from UC-02 (`ISeriesMetadataService`, write-only). UC-03 adds:
+- Read, refresh, and validation logic on top of the existing `ISeriesMetadataService` (see section 9)
 - Folder merge logic when a series folder with the target name already exists
 
 ---
@@ -450,7 +452,7 @@ UC-03 adds:
 
 ### What UC-03 must build from scratch
 
-- Series metadata file writer — writes `{Series Name} ({Year}).json` to the series root folder after a successful folder identification (both Identify and Rename mode)
+- Series metadata read, refresh, and validation logic — extends the write-only `ISeriesMetadataService` already added in UC-02 with `SeriesMetadataReadResult`, TMDB-driven refresh of airing seasons, and episode validation (see section 9)
 - Folder scanner — discovers all video files in a folder, grouped by season
 - Folder rename orchestrator — identifies the series once, then processes each episode using existing UC-02 services
 - Folder merge logic — handles the case where a series folder with the target name already exists
@@ -522,8 +524,8 @@ After UC-03, `ITmdbClient` has:
 
 ### Scoutarr.Core — ISeriesMetadataService
 
-New in UC-03. Handles the full lifecycle of `{Series Title} ({Year}).json`:
-- Writing the file to the series root folder after a successful identification in both Identify and Rename mode
+The write path was already added in UC-02 (single TV episode also writes the metadata file). UC-03 extends it to handle the full lifecycle of `{Series Title} ({Year}).json`:
+- Writing the file to the series root folder after a successful identification in both Identify and Rename mode — **reused directly from UC-02**
 - Reading and deserialising on subsequent passes (`SeriesMetadataReadResult`)
 - Refreshing series and season airing status from TMDB on every pass — always, regardless of whether any season is currently airing, to detect reactivations of cancelled or ended series
 - Refreshing the full episode list (title, runtime, air date) only for seasons still marked as airing after the status update
