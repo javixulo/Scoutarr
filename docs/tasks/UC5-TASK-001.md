@@ -1,7 +1,7 @@
 # UC5-TASK-001 — H2: Absolute episode number heuristic
 
 **Requirements:** [requirements/identification.md](../requirements/identification.md) — "Episode number heuristics"
-**Dependencies:** UC2-TASK-005 (IEpisodeHeuristic, TvEpisodeNumberParser), UC3-TASK-002 (SeriesMetadata, ISeriesMetadataService)
+**Dependencies:** UC2-TASK-005 (IEpisodeHeuristic, EpisodeParseContext, TvEpisodeNumberParser), UC3-TASK-002 (SeriesMetadata, ISeriesMetadataService)
 
 ---
 
@@ -14,7 +14,7 @@ Examples of filenames this heuristic targets:
 - `breaking.bad.13.mkv` — episode 13 in absolute terms
 - `breaking.bad.13.dead.freight.mkv` — absolute number plus words from the episode title
 
-H2 relies on the series metadata file written by UC3-TASK-002, which contains `AbsoluteEpisodeNumber` precalculated for every episode. If no metadata is available, the heuristic returns `null` and the chain continues.
+H2 relies on `context.Metadata` — the series metadata file written by UC3-TASK-002, which contains `AbsoluteEpisodeNumber` precalculated for every episode. If no metadata is available, the heuristic returns `null` and the chain continues.
 
 This task implements `IEpisodeHeuristic` and registers it as H2 in the heuristic chain in `TvEpisodeNumberParser`.
 
@@ -72,11 +72,11 @@ H2 implements `IEpisodeHeuristic` from UC2-TASK-005:
 ```
 IEpisodeHeuristic
 
-TryParse(string filename, SeriesMetadata? metadata)
+TryParse(EpisodeParseContext context)
     → ParsedEpisodeNumber?
 ```
 
-`SeriesMetadata?` is passed in from the orchestrator. When `null`, H2 returns `null` immediately.
+H2 only uses `context.Filename` and `context.Metadata` from the context (it does not read `context.FileDuration`). When `context.Metadata` is `null`, H2 returns `null` immediately.
 
 `TvEpisodeNumberParser` injects H2 after H1 in its ordered heuristic list.
 
@@ -84,7 +84,7 @@ TryParse(string filename, SeriesMetadata? metadata)
 
 ## Notes for Black Widow
 
-- All tests are pure — mock `SeriesMetadata` directly, no filesystem or TMDB calls.
+- All tests are pure — populate `EpisodeParseContext` directly with mock `SeriesMetadata`, no filesystem or TMDB calls.
 - Test no bare number in filename → `null`.
 - Test no metadata available → `null`.
 - Test bare number exceeds total episode count — interpretation A discarded, interpretation B resolves → result is B.
