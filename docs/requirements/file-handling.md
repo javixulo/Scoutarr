@@ -151,6 +151,7 @@ The metadata file contains:
 - Series title and year.
 - Total number of seasons.
 - For each season: episode count, whether the season is still airing, and whether the season is complete.
+- For each episode within a season: episode title, runtime in minutes (if provided by TMDB), air date (if provided by TMDB), and a precalculated absolute episode number (null for Season 0 specials). These fields are required by the episode number heuristics described in [identification.md](identification.md) (H2–H5).
 - Whether the series is still airing, has ended, or was cancelled.
 
 Season airing status must be kept up to date. On each pass, Scoutarr refreshes season and episode counts from TMDB for any season that was previously marked as still airing. This ensures that a season with 10 episodes today may correctly show 12 episodes on the next pass if new episodes have aired.
