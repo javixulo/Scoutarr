@@ -46,7 +46,7 @@ Scans the folder, identifies the series, moves all episodes to their destination
 When processing a folder and series disambiguation is needed:
 - Never present a numbered list of candidates to the user.
 - Ask one focused, natural question at a time using the enriched candidate data.
-- Use creator, cast, network, genre, and status to phrase contextual questions.
+- Use creator, cast, network, and status to phrase contextual questions.
 - Examples: "Is this the AMC series created by Vince Gilligan, or the BBC documentary of the same name?",
   "Does the folder contain episodes starring Bryan Cranston?"
 - If the user explicitly cancels, confirm the cancellation and do not modify any files.
