@@ -72,7 +72,7 @@ When an error occurs:
 ## Enrichment — confirmed series match
 
 When a series is confirmed (either via identification or provided `tmdbId`), the MCP layer fetches:
-- Creator, Cast (top 5), Network, Genres, Status, Seasons (with episode counts)
+- Creator, Cast (top 5), Network, Status, Seasons (with episode counts)
 
 Season 0 (specials) is included in the `Seasons` list if present.
 
@@ -91,7 +91,6 @@ When disambiguation is needed, candidates are enriched with `overview`, `origina
   "tmdbId": 1396,
   "network": "AMC",
   "status": "Ended",
-  "genres": ["Crime", "Drama", "Thriller"],
   "creator": "Vince Gilligan",
   "topCast": ["Bryan Cranston", "Aaron Paul", "Anna Gunn", "Dean Norris", "Betsy Brandt"],
   "seasons": [
@@ -114,7 +113,6 @@ When disambiguation is needed, candidates are enriched with `overview`, `origina
   "tmdbId": 1396,
   "network": "AMC",
   "status": "Ended",
-  "genres": ["Crime", "Drama", "Thriller"],
   "creator": "Vince Gilligan",
   "topCast": ["Bryan Cranston", "Aaron Paul", "Anna Gunn", "Dean Norris", "Betsy Brandt"],
   "successes": [
