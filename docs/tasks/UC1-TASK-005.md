@@ -32,8 +32,7 @@ Applies the rename to disk. Internally calls identify first — if identificatio
   "filename": "The.Batman.2022.1080p.mkv",
   "candidateIndex": null,
   "year": null,
-  "originalLanguage": null,
-  "genre": null
+  "originalLanguage": null
 }
 ```
 
