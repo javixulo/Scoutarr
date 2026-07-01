@@ -19,6 +19,8 @@ Scoutarr is inspired by [TinyMediaManager (TMM)](https://www.tinymediamanager.or
 - Rename all episodes in a folder (full series or single season).
 - Handle subsequent passes on a known series folder (new episodes arriving over time).
 - Add a set of heuristics to improve session and episode number recognition.
+- Remap a single already-organised file to a different season/episode, provided explicitly by the user.
+- Remap an already-organised series folder to a new season/episode structure.
 
 ---
 
