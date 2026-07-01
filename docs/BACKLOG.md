@@ -23,7 +23,7 @@
 ## UC-01 — Rename a single movie file
 
 | Task     | Title                                    | Status |
-| -------- | ---------------------------------------- | ------ |
+| -------- | ----------------------------------------- | ------ |
 | [UC1-TASK-001](tasks/UC1-TASK-001.md) | Movie filename parser                    | 🟦      |
 | [UC1-TASK-002](tasks/UC1-TASK-002.md) | TMDB movie search and confidence scoring | 🟦      |
 | [UC1-TASK-003](tasks/UC1-TASK-003.md) | Output filename formatter (movie)        | 🟦      |
@@ -80,6 +80,22 @@
 | [UC5-TASK-002](tasks/UC5-TASK-002.md) | H3 — Special episode identification by file duration      | 🟦      |
 | [UC5-TASK-003](tasks/UC5-TASK-003.md) | H4 — Episode identification by air date                  | 🟦      |
 | [UC5-TASK-004](tasks/UC5-TASK-004.md) | H5 — Episode identification by title match               | 🟦      |
+
+---
+
+## UC-06 — Remap a single already-organised file to a different season/episode
+
+| Task     | Title                                                      | Status |
+| -------- | ------------------------------------------------------------ | ------ |
+| [UC6-TASK-000](tasks/UC6-TASK-000.md) | Resolve the series for a remap operation                    | ✅      |
+| [UC6-TASK-001](tasks/UC6-TASK-001.md) | Validate remap destination                                   | ✅      |
+| UC6-TASK-002 | Compare current filename title against destination episode title | 🔷      |
+| UC6-TASK-003 | Identify mode — compute proposed remap filename/path         | ⬜      |
+| UC6-TASK-004 | Rename mode — apply the remap on disk                        | ⬜      |
+| UC6-TASK-005 | REST API — identify and rename remap                         | ⬜      |
+| UC6-TASK-006 | MCP — identify and rename remap                              | ⬜      |
+
+> UC-07 (remap a series folder after a TMDB restructuring) is deliberately parked until UC-06 is complete.
 
 ---
 
