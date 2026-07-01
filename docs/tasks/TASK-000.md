@@ -9,7 +9,7 @@
 
 This task creates the skeleton on which every other task builds. Nothing functional is implemented here — no parsing, no TMDB calls, no renaming. The goal is a solution that compiles, has the correct project layout, boots inside Docker, and gives every subsequent task a solid, consistent foundation to extend.
 
-This task also produces the Dockerfile that TASK-022 (CI/CD pipeline) will consume to build and publish the image on every merge to main.
+This task also produces the Dockerfile that TASK-001 (CI/CD pipeline) will consume to build and publish the image on every merge to main.
 
 ---
 

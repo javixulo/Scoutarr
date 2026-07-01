@@ -87,5 +87,5 @@
 
 | Task     | Title                                                          | Status |
 | -------- | -------------------------------------------------------------- | ------ |
-| [TASK-000](tasks/TASK-000.md) | Project bootstrap — solution structure, configuration, logging, Docker | 🔷      |
-| [TASK-001](tasks/TASK-001.md) | CI/CD pipeline (GitHub Actions + ghcr.io)                     | ⬜      |
+| [TASK-000](tasks/TASK-000.md) | Project bootstrap — solution structure, configuration, logging, Docker | 🟦      |
+| [TASK-001](tasks/TASK-001.md) | CI/CD pipeline (GitHub Actions + ghcr.io)                     | 🟦      |
