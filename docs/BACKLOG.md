@@ -90,8 +90,8 @@
 | [UC6-TASK-000](tasks/UC6-TASK-000.md) | Resolve the series for a remap operation                    | 🟦      |
 | [UC6-TASK-001](tasks/UC6-TASK-001.md) | Validate remap destination                                   | 🟦      |
 | [UC6-TASK-002](tasks/UC6-TASK-002.md) | Compare current filename title against destination episode title | 🟦      |
-| UC6-TASK-003 | Identify mode — compute proposed remap filename/path         | 🔷      |
-| UC6-TASK-004 | Rename mode — apply the remap on disk                        | ⬜      |
+| [UC6-TASK-003](tasks/UC6-TASK-003.md) | Identify mode — compute proposed remap filename/path         | 🟦      |
+| UC6-TASK-004 | Rename mode — apply the remap on disk                        | 🔷      |
 | UC6-TASK-005 | REST API — identify and rename remap                         | ⬜      |
 | UC6-TASK-006 | MCP — identify and rename remap                              | ⬜      |
 
