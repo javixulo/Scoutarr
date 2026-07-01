@@ -163,3 +163,7 @@ When a metadata file already exists, Scoutarr:
 - Skips the series identification step.
 - Validates each new episode against the known series data (season number and episode count).
 - Reports anomalies as errors (e.g. S01E22 when season 1 only has 21 episodes) for the user to resolve.
+
+### Remapping working file
+
+When a series is remapped to a new season/episode structure (see UC-06/UC-07 task files), a separate working file — `{Series Name} ({Year}).remapping.json`, distinct from the metadata file above — tracks the mapping in progress. Unlike the metadata file, it is never deleted once a remap completes; it is kept as an audit trail. If the metadata file needs to be rewritten as a result of a completed remap, the previous version is preserved as a backup (`.old` inserted before the extension) rather than overwritten outright. Full behaviour is defined in the UC-06/UC-07 task files.
