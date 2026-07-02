@@ -9,13 +9,17 @@
 
 Computes the proposed new name/path for a single-file remap without touching the filesystem, and records the decision in the series' remapping working file so it is preserved and can be reused on a later call.
 
-This is the Identify half of UC-06 (Rename, UC6-TASK-004, applies it to disk).
+This is the Identify half of UC-06 (Rename, UC6-TASK-005, applies it to disk).
+
+A `remapping.json` entry is always per file, not per (file, destination) — each file has at most one active entry. Calling identify again with a different destination overwrites the existing entry.
+
+A `conflict` (title mismatch) is never resolved implicitly by repeating the same call. It requires an explicit `force: true` on a call using the exact same destination that produced the conflict. `force` has no effect on a different destination — a different destination is always evaluated fresh, and can itself produce a new `conflict` if its own title cross-check fails.
 
 ---
 
 ## The remapping working file
 
-Written to the root of the series folder as `{Series Name} ({Year}).remapping.json`, distinct from the series metadata file. Never deleted (kept as an audit trail, per project decision). Example after a couple of identify calls on the same series:
+Written to the root of the series folder as `{Series Name} ({Year}).remapping.json`, distinct from the series metadata file. Never deleted (kept as an audit trail, per project decision). Example after an identify call:
 
 ```json
 {
@@ -24,28 +28,17 @@ Written to the root of the series folder as `{Series Name} ({Year}).remapping.js
   "seriesYear": 2008,
   "entries": [
     {
-      "originalPath": "Season 03/Breaking Bad - S03E02 - Caballo Sin Nombre.mkv",
+      "originalPath": "Season 03/Breaking Bad - S03E10 - The Beginning.mkv",
+      "origin": { "season": 3, "episode": 10 },
       "status": "resolved",
       "destination": { "season": 1, "episode": 45 },
-      "proposedPath": "Season 01/Breaking Bad - S01E45 - Caballo Sin Nombre.mkv",
+      "proposedPath": "Season 01/Breaking Bad - S01E45 - The Beginning.mkv",
       "titleCheck": {
         "result": "match",
-        "currentTitle": "Caballo Sin Nombre",
-        "destinationTitle": "Caballo Sin Nombre"
+        "currentTitle": "The Beginning",
+        "destinationTitle": "The Beginning"
       },
       "updatedAt": "2026-07-01T10:52:00Z"
-    },
-    {
-      "originalPath": "Season 03/Breaking Bad - S03E05 - Problem Dog.mkv",
-      "status": "conflict",
-      "destination": { "season": 1, "episode": 48 },
-      "proposedPath": "Season 01/Breaking Bad - S01E48 - Problem Dog.mkv",
-      "titleCheck": {
-        "result": "mismatch",
-        "currentTitle": "Problem Dog",
-        "destinationTitle": "Hermanos"
-      },
-      "updatedAt": "2026-07-01T10:53:00Z"
     }
   ]
 }
@@ -53,10 +46,11 @@ Written to the root of the series folder as `{Series Name} ({Year}).remapping.js
 
 Notes:
 
+- `origin` records the season/episode the file actually had before any remap — parsed once from its current path/filename — and never changes for a given file, even if the entry is later overwritten with a different destination.
 - `entries` is a list because separate calls against the same series accumulate in the same working file (this structure is also the one UC-07 will reuse for multiple simultaneous files).
 - `titleCheck` is the UC6-TASK-002 output embedded as-is.
 - No `candidates` field for UC-06 — it's a manual, single-destination operation. That field is introduced by UC-07's `resolve`.
-- The file is never deleted, even once the underlying media file has been renamed by UC6-TASK-004.
+- The file is never deleted, even once the underlying media file has been renamed by UC6-TASK-005.
 
 ---
 
@@ -66,43 +60,91 @@ Notes:
 Feature: Identify mode for single-file remap
   As Scoutarr
   I want to compute the proposed new name/path for a remap destination and record it in the working file
-  So that the user can preview the result before applying it, and the decision is preserved
+  So that the user can preview the result before applying it, with explicit confirmation required for conflicts
 
   Scenario: Destination is valid and title cross-check matches
-    Given a validated remap destination "S01E45" with title "The Beginning"
-    And the title cross-check result is a match
-    And no "{Series Name} ({Year}).remapping.json" exists yet for this series
+    Given remap is called for the file "Season 03/Breaking Bad - S03E10 - The Beginning.mkv"
+    And the destination provided is "S01E45"
+    And "S01E45" is validated against the fresh TMDB listing and exists, with title "The Beginning"
+    And the title cross-check between "The Beginning" (current) and "The Beginning" (destination) is a match
+    And no "Breaking Bad (2008).remapping.json" exists yet
     When identify is run
-    Then the proposed filename/path is computed for "S01E45"
-    And "{Series Name} ({Year}).remapping.json" is created with an entry for this file marked "resolved"
+    Then the proposed path is computed as "Season 01/Breaking Bad - S01E45 - The Beginning.mkv"
+    And "Breaking Bad (2008).remapping.json" is created with an entry for this file
+    And the entry's status is "resolved"
+    And the entry's originalPath is "Season 03/Breaking Bad - S03E10 - The Beginning.mkv"
+    And the entry's origin is season 3, episode 10
+    And the entry's destination is season 1, episode 45
 
   Scenario: Destination is valid and there is no title to compare
-    Given a validated remap destination "S01E45" with title "The Beginning"
-    And the title cross-check result is "no title to compare"
+    Given remap is called for the file "Season 03/Breaking Bad - S03E10.mkv"
+    And the destination provided is "S01E45"
+    And "S01E45" is validated against the fresh TMDB listing and exists, with title "The Beginning"
+    And the current filename has no title to extract
     When identify is run
-    Then the proposed filename/path is computed for "S01E45"
-    And the entry for this file in "{Series Name} ({Year}).remapping.json" is marked "resolved"
+    Then the title cross-check result is "no title to compare"
+    And the entry's status is "resolved"
+    And the entry's origin is season 3, episode 10
+    And the entry's destination is season 1, episode 45
 
-  Scenario: Destination is valid but title cross-check is a mismatch
-    Given a validated remap destination "S01E45" with title "The Beginning"
-    And the title cross-check result is a mismatch, with the file's current title "A New Threat"
+  Scenario: Destination is valid but title cross-check is a mismatch (first attempt)
+    Given remap is called for the file "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv"
+    And the destination provided is "S01E45"
+    And "S01E45" is validated against the fresh TMDB listing and exists, with title "The Beginning"
+    And no prior entry exists for this file in "Breaking Bad (2008).remapping.json"
     When identify is run
-    Then the proposed filename/path is still computed for "S01E45", for preview purposes
-    And the entry for this file in "{Series Name} ({Year}).remapping.json" is marked "conflict"
-    And the response includes both titles (file's current title and destination's title) so the user can judge the mismatch
+    Then the title cross-check between "Problem Dog" (current) and "The Beginning" (destination) is a mismatch
+    And the proposed path "Season 01/Breaking Bad - S01E45 - The Beginning.mkv" is still computed, for preview purposes
+    And the entry's status is "conflict"
+    And the entry's destination is season 1, episode 45
+    And the response includes both "Problem Dog" and "The Beginning" so the user can judge the mismatch
+
+  Scenario: Re-running identify with the same conflicted destination, without confirming, does not resolve it
+    Given "Breaking Bad (2008).remapping.json" has an entry for "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv"
+    And that entry's status is "conflict" with destination season 1, episode 45
+    When identify is run again for the same file with the same destination "S01E45" and no confirmation flag
+    Then the entry's status remains "conflict"
+    And the entry's destination remains season 1, episode 45
+
+  Scenario: Re-running identify with the same conflicted destination and force=true confirms it
+    Given "Breaking Bad (2008).remapping.json" has an entry for "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv"
+    And that entry's status is "conflict" with destination season 1, episode 45
+    When identify is run again for the same file with the same destination "S01E45" and "force" set to true
+    Then the entry's status changes to "resolved"
+    And the entry's destination remains season 1, episode 45
+    And the entry's origin remains season 3, episode 10
+
+  Scenario: Force is ignored when the destination differs from the existing conflict
+    Given "Breaking Bad (2008).remapping.json" has an entry for "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv"
+    And that entry's status is "conflict" with destination season 1, episode 45
+    When identify is run again for the same file with a different destination "S01E12" and "force" set to true
+    Then "force" has no effect, since it does not match the existing conflicted destination
+    And the entry is evaluated fresh against "S01E12", exactly as in an unforced call
+    And if the title cross-check for "S01E12" is also a mismatch, the resulting status is "conflict" (not "resolved")
+
+  Scenario: Re-running identify with a different destination overrides a conflicted entry
+    Given "Breaking Bad (2008).remapping.json" has an entry for "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv"
+    And that entry's status is "conflict" with destination season 1, episode 45
+    When identify is run again for the same file with a different destination "S01E12"
+    Then the entry for this file is overwritten
+    And the title cross-check and status are recomputed from scratch against "S01E12"
+    And the entry's origin remains season 3, episode 10 (unchanged — the file's real origin never changes)
 
   Scenario: Destination validation fails
-    Given the remap destination does not exist in the fresh TMDB data
+    Given remap is called for the file "Season 03/Breaking Bad - S03E10.mkv"
+    And the destination provided is "S09E01"
+    And season 9 does not exist in the fresh TMDB listing for this series
     When identify is run
-    Then no filename/path is computed
-    And "{Series Name} ({Year}).remapping.json" is not created or modified
+    Then no proposed path is computed
+    And "Breaking Bad (2008).remapping.json" is not created or modified
     And the result status is "error", with the validation failure detail
 
-  Scenario: Re-running identify on a file already resolved in the working file
-    Given "{Series Name} ({Year}).remapping.json" already has an entry for this file marked "resolved"
-    When identify is run again for the same file with the same destination
+  Scenario: Re-running identify on a file already resolved with the same destination
+    Given "Breaking Bad (2008).remapping.json" has an entry for "Season 03/Breaking Bad - S03E10 - The Beginning.mkv"
+    And that entry's status is "resolved" with destination season 1, episode 45
+    When identify is run again for the same file with the same destination "S01E45"
     Then the existing entry is reused rather than recomputed
-    And the proposed filename/path from the existing entry is returned
+    And the proposed path from the existing entry is returned unchanged
 
   Scenario: Identify does not touch the media filesystem
     Given any of the scenarios above
@@ -115,14 +157,15 @@ Feature: Identify mode for single-file remap
 
 ## Notes for Black Widow
 
-- Cover all six scenarios above.
+- Cover all eleven scenarios above.
 - Add a case covering a second, different entry being added to an already-existing `remapping.json` for the same series (confirms entries accumulate rather than the file being overwritten wholesale).
 
 ## Notes for Tony Stark
 
 - Reuse the episode filename formatter (UC2-TASK-007) to compute `proposedPath`.
-- The series metadata file is never written or modified by this task — only by UC6-TASK-004, and only under the conditions already defined for that task.
-- Entry matching for the "already resolved" reuse case is by `originalPath` within the working file.
+- The series metadata file is never written or modified by this task — only by UC6-TASK-005, and only under the conditions already defined for that task.
+- Entry matching for reuse/overwrite/force logic is by `originalPath` within the working file.
+- `force` is a same-destination confirmation, not a general override — validate that the provided destination matches the existing conflicted entry's destination before honouring it.
 
 ---
 
