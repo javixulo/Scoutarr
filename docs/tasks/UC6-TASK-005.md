@@ -1,7 +1,7 @@
 # UC6-TASK-005 — Rename mode for single-file remap
 
 **Requirements:** [requirements/file-handling.md](../requirements/file-handling.md) — "Remapping working file"
-**Dependencies:** UC6-TASK-003 (identify mode), UC6-TASK-004 (conflict resolution)
+**Dependencies:** UC6-TASK-003 (identify mode, including the `force` confirmation flow for conflicts)
 
 ---
 
@@ -9,7 +9,7 @@
 
 Applies a remap that has already been computed by Identify (UC6-TASK-003) to disk: moves and renames the video file and its subtitles to the proposed destination.
 
-A `conflict` entry (title mismatch) cannot be applied directly — it must be resolved first via UC6-TASK-004 (`force` or `skip`). This task only covers applying entries that are already in a movable state (`resolved`), and rejecting attempts to apply an unresolved `conflict`.
+A `conflict` entry (title mismatch) cannot be applied directly. It must first be resolved by calling Identify again with the exact same destination and `force: true` (see UC6-TASK-003) — there is no separate "resolve" operation. This task only covers applying entries that are already `resolved`, and rejecting attempts to apply an unresolved `conflict`.
 
 ---
 
@@ -33,7 +33,7 @@ Feature: Rename mode for single-file remap
     Given "{Series Name} ({Year}).remapping.json" has an entry for this file marked "conflict"
     When rename is run for this file
     Then the operation fails
-    And the error clearly states the title mismatch and that the conflict must be resolved first (see UC6-TASK-004)
+    And the error clearly states the title mismatch and that identify must be called again with the same destination and "force: true" first
     And no file is moved
 
   Scenario: Rename runs identify first when no working file entry exists yet
@@ -69,7 +69,7 @@ Feature: Rename mode for single-file remap
 
 - Reuse `TvEpisodeMoveService` / merge logic from UC3-TASK-004 as-is for the actual move.
 - The series metadata file is never written or modified by this task.
-- Status transition on success is `resolved` → `applied`. A `conflict` entry must go through UC6-TASK-004 first; this task does not resolve conflicts itself.
+- Status transition on success is `resolved` → `applied`. A `conflict` entry must go through the `force` confirmation flow in Identify (UC6-TASK-003) first; this task does not resolve conflicts itself.
 
 ---
 
