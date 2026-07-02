@@ -704,3 +704,83 @@ All heuristics implement `IEpisodeHeuristic.TryParse(EpisodeParseContext)` → `
 ### External dependency added in UC-05
 
 `MediaInfo.Wrapper.Core` (NuGet) is added to `Scoutarr.Core` to read file duration upstream before invoking the heuristic chain. The duration is placed in `EpisodeParseContext.FileDuration`. On Linux/Docker, requires system packages `libzen0v5 libmms0 zlib1g libnghttp2-14 librtmp1 libcurl4` (see TASK-000).
+
+---
+
+## 12. State after UC-06 — What exists for UC-07 to build on
+
+This section summarises what is implemented and available after UC-06 (remap a single already-organised file to a different season/episode) is complete. UC-07 (remap a series folder after a TMDB restructuring) should extend or reuse these pieces rather than rebuilding them.
+
+---
+
+### Scoutarr.Core — interfaces
+
+| Interface | Purpose | Reuse in UC-07 |
+|---|---|---|
+| All interfaces from UC-01 through UC-05 | See sections 7–11 | **All reused directly** |
+| `ITvShowIdentificationService` | Resolves the series for a remap operation (UC6-TASK-000), with the metadata file as a shortcut when present | **Reused directly** — series resolution is identical whether remapping one file or a whole folder |
+| `ITvEpisodeNumberParser` | Used to derive a file's `origin` (season/episode it currently has) from its current path/filename | **Reused directly** — UC-07 needs `origin` for every file in the folder, not just one |
+| `IRemapDestinationValidator` | Validates a destination season/episode exists in a fresh TMDB listing (UC6-TASK-001) | **Reused directly** |
+| `IRemapTitleCrossCheckService` | Compares a file's current title (if present) against a destination episode's title, reusing H5's normalisation logic (UC6-TASK-002) | **Reused directly** — becomes signal 1 in UC-07's matching hierarchy |
+| `IRemapWorkingFileService` | Reads/writes `{Series Name} ({Year}).remapping.json`; entries keyed by `originalPath`, never deleted | **Reused directly** — UC-07 uses the same file and entry shape, just populated for many files instead of one, with `candidates` added for ambiguous matches |
+| `IRemapIdentificationService` | Orchestrates: resolve series → derive origin → validate destination → title cross-check → noop/resolved/conflict decision → write working file entry (UC6-TASK-003) | Pattern to follow — UC-07's identify orchestrates the same steps per file, plus anchor offset resolution as an additional signal |
+| `IRemapRenameService` | Applies a `resolved`/`noop` working file entry to disk, rejects `conflict` (UC6-TASK-005) | **Reused directly**, called once per resolved file in a UC-07 batch |
+| `ITvEpisodeMoveService` | Moves episode and subtitles, no-overwrite/merge behaviour | **Reused directly** |
+
+---
+
+### Scoutarr.Core — types
+
+All types from UC-01 through UC-05 remain available. UC-06 adds:
+
+| Type | Description | Reuse in UC-07 |
+|---|---|---|
+| `RemapDestination` | Season + episode, explicit destination | **Reused directly** — UC-07 computes this per file instead of taking it as direct input |
+| `RemapOrigin` | Season + episode, derived from the file's current path/filename | **Reused directly** |
+| `RemapTitleCheckResult` | `Match`, `Mismatch`, or `NoTitleToCompare`, with both titles when relevant | **Reused directly** — same three-way result feeds UC-07's signal 1 |
+| `RemapEntryStatus` | Enum: `Resolved`, `Conflict`, `Noop`, `Applied` | **Extended, not replaced** — UC-07 adds `NoCoverage` (file outside any anchored range, or no usable signal at all) |
+| `RemapWorkingFileEntry` | `originalPath`, `origin`, `status`, `destination`, `proposedPath`, `titleCheck`, `updatedAt` | **Extended** — UC-07 adds an optional `candidates` list (populated only for `Conflict`/ambiguous entries) and an optional `anchorUsed` reference |
+| `RemapWorkingFile` | `seriesTmdbId`, `seriesName`, `seriesYear`, `entries` (list) | **Reused directly** — already designed as a list to support multiple simultaneous files, per the working file spec in UC6-TASK-003 |
+
+---
+
+### Scoutarr.Api — REST endpoints
+
+After UC-06:
+- All endpoints from UC-01 through UC-05
+- `POST /identify/remap` — compute proposed single-file remap, write working file entry
+- `POST /rename/remap` — apply a resolved/noop entry to disk
+
+UC-07 adds:
+- `POST /identify/remap-folder` — compute proposed remap for every file in a series folder, optionally given an anchor pair
+- `POST /resolve/remap-folder` — resolve a single `conflict`/ambiguous entry with a chosen candidate
+- `POST /rename/remap-folder` — apply all `resolved` entries in the folder's working file
+
+---
+
+### Scoutarr.Mcp — MCP tools
+
+After UC-06:
+- All tools from UC-01 through UC-05
+- `identify_remap` — single-file remap preview, with `instructions` guiding the agent through a title conflict conversationally
+- `rename_remap` — applies a resolved/noop single-file remap
+
+UC-07 adds:
+- `identify_remap_folder` — folder-wide remap preview, optionally given an anchor pair
+- `resolve_remap_folder` — resolves one ambiguous entry at a time, conversationally
+- `rename_remap_folder` — applies all resolved entries in the folder
+
+The MCP server system prompt is extended to cover the folder-level conflict/no-coverage flow, including how to walk the user through anchor pairs and multiple simultaneous ambiguous entries.
+
+---
+
+### What UC-07 must build from scratch
+
+- Anchor offset resolution — translating a file's absolute broadcast position within an anchored range (old numbering) to the corresponding position in the fresh TMDB listing (new numbering)
+- The full matching signal hierarchy (title exact match → anchor offset → duration for specials only → old S/E as weak tiebreaker), and the "both signals agree/disagree" conflict rule between title and anchor
+- `NoCoverage` handling — files outside any anchored range, or with no usable signal at all
+- `candidates` list population on ambiguous entries (not needed in UC-06, where the destination is always given directly)
+- `resolve_remap_folder` — a genuinely new operation; UC-06 has no equivalent, since a single-file remap's only path to confirming a conflict is repeating the same destination with `force` in Identify itself
+- Folder-wide orchestration: running identify/rename across every file in a series folder in one call, reusing `IRemapWorkingFileService` and `IRemapIdentificationService`/`IRemapRenameService` per file
+- Series metadata file backup-and-rewrite on full completion (`.old` suffix, per [file-handling.md](requirements/file-handling.md)) — not needed in UC-06, where the metadata file is deliberately left untouched
+- REST and MCP endpoints/tools listed above
