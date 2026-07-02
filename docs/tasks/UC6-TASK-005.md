@@ -1,7 +1,7 @@
 # UC6-TASK-005 — Rename mode for single-file remap
 
 **Requirements:** [requirements/file-handling.md](../requirements/file-handling.md) — "Remapping working file"
-**Dependencies:** UC6-TASK-003 (identify mode, including the `force` confirmation flow for conflicts)
+**Dependencies:** UC6-TASK-003 (identify mode, including the `force` confirmation flow for conflicts and the `noop` case)
 
 ---
 
@@ -9,7 +9,9 @@
 
 Applies a remap that has already been computed by Identify (UC6-TASK-003) to disk: moves and renames the video file and its subtitles to the proposed destination.
 
-A `conflict` entry (title mismatch) cannot be applied directly. It must first be resolved by calling Identify again with the exact same destination and `force: true` (see UC6-TASK-003) — there is no separate "resolve" operation. This task only covers applying entries that are already `resolved`, and rejecting attempts to apply an unresolved `conflict`.
+A `conflict` entry (title mismatch) cannot be applied directly. It must first be resolved by calling Identify again with the exact same destination and `force: true` (see UC6-TASK-003) — there is no separate "resolve" operation, and `force` is not accepted by Rename itself.
+
+A `noop` entry (destination equals the file's current origin) requires no filesystem change — Rename treats it as an immediate success.
 
 ---
 
@@ -29,6 +31,13 @@ Feature: Rename mode for single-file remap
     And the series metadata file is left untouched
     And the entry's status is updated to "applied"
 
+  Scenario: Applying a noop entry
+    Given "{Series Name} ({Year}).remapping.json" has an entry for this file marked "noop"
+    When rename is run for this file
+    Then no file is moved or renamed
+    And the operation succeeds
+    And the entry's status remains "noop"
+
   Scenario: Attempting to apply a conflict entry
     Given "{Series Name} ({Year}).remapping.json" has an entry for this file marked "conflict"
     When rename is run for this file
@@ -41,11 +50,11 @@ Feature: Rename mode for single-file remap
     And the user provides a destination directly to rename
     When rename is run
     Then identify is executed first (as already established for the rest of the system)
-    And if the resulting entry is "resolved", the move proceeds
+    And if the resulting entry is "resolved" or "noop", the operation proceeds accordingly
     And if the resulting entry is "conflict", the operation fails per the previous scenario
 
-  Scenario: Destination already occupied at the target path
-    Given a resolved entry whose proposed destination file already exists on disk
+  Scenario: Destination already occupied at the target path by a different file
+    Given a resolved entry whose proposed destination file already exists on disk, and it is not the same file being remapped
     When rename is run for this file
     Then the operation is aborted
     And an error is returned
@@ -62,14 +71,17 @@ Feature: Rename mode for single-file remap
 
 ## Notes for Black Widow
 
-- Cover all five scenarios above.
+- Cover all six scenarios above.
 - Reuse the existing no-overwrite/merge test fixtures from UC3-TASK-004 rather than duplicating them.
+- Confirm the "destination already occupied" check correctly distinguishes a genuine collision with a different file from the `noop` case (same file, same path) — they must never be treated the same way.
 
 ## Notes for Tony Stark
 
 - Reuse `TvEpisodeMoveService` / merge logic from UC3-TASK-004 as-is for the actual move.
 - The series metadata file is never written or modified by this task.
-- Status transition on success is `resolved` → `applied`. A `conflict` entry must go through the `force` confirmation flow in Identify (UC6-TASK-003) first; this task does not resolve conflicts itself.
+- Status transition on success is `resolved` → `applied`. `noop` entries stay `noop` — there is no `applied` transition for them, since nothing happened.
+- A `conflict` entry must go through the `force` confirmation flow in Identify (UC6-TASK-003) first; this task does not accept a `force` parameter and does not resolve conflicts itself.
+- The "destination occupied" check must compare against the entry's own `originalPath` first — if they're the same file, this is the `noop` case (already handled at Identify time) and must never reach the collision-error path.
 
 ---
 
