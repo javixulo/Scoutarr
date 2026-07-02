@@ -90,12 +90,13 @@
 | [UC6-TASK-000](tasks/UC6-TASK-000.md) | Resolve the series for a remap operation                    | 🟦      |
 | [UC6-TASK-001](tasks/UC6-TASK-001.md) | Validate remap destination                                   | 🟦      |
 | [UC6-TASK-002](tasks/UC6-TASK-002.md) | Compare current filename title against destination episode title | 🟦      |
-| [UC6-TASK-003](tasks/UC6-TASK-003.md) | Identify mode — compute proposed remap filename/path         | 🟦      |
-| UC6-TASK-004 | Resolve a title conflict (force / skip)                      | ⬜      |
+| [UC6-TASK-003](tasks/UC6-TASK-003.md) | Identify mode — compute proposed remap filename/path, including `force` confirmation for conflicts | 🟦      |
 | [UC6-TASK-005](tasks/UC6-TASK-005.md) | Rename mode — apply the remap on disk                        | 🟦      |
-| UC6-TASK-006 | REST API — identify, resolve, and rename remap                | ⬜      |
-| UC6-TASK-007 | MCP — identify, resolve, and rename remap                     | ⬜      |
+| UC6-TASK-006 | REST API — identify and rename remap                          | ⬜      |
+| UC6-TASK-007 | MCP — identify and rename remap                                | ⬜      |
 
+> Task number 004 is intentionally unused: conflict resolution was folded into the `force` confirmation flow within UC6-TASK-003 (Identify) rather than kept as a separate operation.
+>
 > UC-07 (remap a series folder after a TMDB restructuring) is deliberately parked until UC-06 is complete.
 
 ---
