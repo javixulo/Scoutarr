@@ -15,6 +15,8 @@ The MCP server exposes two tools: `identify_remap` and `rename_remap`. Unlike UC
 
 Both tools are thin wrappers over the same UC-06 Identify/Rename logic already used by the REST controller (UC6-TASK-006) — no business logic is duplicated here.
 
+`force` is only accepted by `identify_remap`. `rename_remap` never accepts it.
+
 ---
 
 ## Tools
@@ -23,17 +25,28 @@ Both tools are thin wrappers over the same UC-06 Identify/Rename logic already u
 Computes the proposed mapping without touching the media file.
 
 ### `rename_remap`
-Applies an already-resolved mapping to disk. Internally calls identify first if no entry exists yet.
+Applies an already-`resolved` (or `noop`) mapping to disk. Internally calls identify first if no entry exists yet.
 
 ---
 
-## Tool input schema (both tools)
+## Tool input schemas
+
+### `identify_remap`
 
 ```json
 {
   "path": "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv",
   "destination": { "season": 1, "episode": 45 },
   "force": false
+}
+```
+
+### `rename_remap`
+
+```json
+{
+  "path": "Season 03/Breaking Bad - S03E10 - Problem Dog.mkv",
+  "destination": { "season": 1, "episode": 45 }
 }
 ```
 
@@ -54,19 +67,23 @@ When you receive a conflict result (status: "conflict"):
 - Ask whether they want to proceed anyway (force) or provide a different destination.
 - Never force the destination without an explicit confirmation from the user in this turn.
 
+When you receive a noop result (status: "noop"):
+- Tell the user the file is already at the requested destination — there is nothing to do.
+
 When you receive a resolved or applied result:
 - Confirm plainly what happened: the file's previous location and its new one.
 
 When you receive an error:
-- Explain what went wrong in plain language (e.g. the destination doesn't exist in TMDB)
-  and suggest what the user can do next.
+- Explain what went wrong in plain language (e.g. the destination doesn't exist in TMDB,
+  or the file's current season/episode couldn't be determined) and suggest what the user
+  can do next.
 ```
 
 ---
 
 ## Response shapes
 
-### Resolved / applied
+### Resolved / applied / noop
 
 ```json
 {
@@ -79,6 +96,8 @@ When you receive an error:
   "titleCheck": { "result": "match", "currentTitle": "The Beginning", "destinationTitle": "The Beginning" }
 }
 ```
+
+For `noop`, `titleCheck` is omitted and `proposedPath` equals `originalPath`.
 
 ### Conflict (`isError: false`)
 
@@ -119,6 +138,12 @@ Feature: MCP — identify and rename remap
     Then the result is not an error
     And the result contains status "resolved"
 
+  Scenario: Noop destination returns success result
+    Given a call to identify_remap with a destination equal to the file's current origin
+    When the tool is called
+    Then the result is not an error
+    And the result contains status "noop"
+
   Scenario: Title conflict returns a non-error result with instructions
     Given a call to identify_remap with a destination whose title does not match the current filename's title
     And Core returns status "conflict"
@@ -133,6 +158,12 @@ Feature: MCP — identify and rename remap
     When the tool is called
     Then the result contains status "resolved"
 
+  Scenario: Force with no matching prior conflict returns isError true
+    Given no entry exists yet for this file
+    And a call to identify_remap with destination S01E45 and force true
+    When the tool is called
+    Then the result has isError true
+
   Scenario: Destination does not exist in TMDB returns isError true
     Given a call to identify_remap with a destination season/episode that does not exist
     When the tool is called
@@ -140,7 +171,7 @@ Feature: MCP — identify and rename remap
 
   Scenario: rename_remap rejects an unconfirmed conflict
     Given a conflict entry exists for this file with destination S01E45
-    And a call to rename_remap with the same path and destination, without force
+    And a call to rename_remap with the same path and destination
     When the tool is called
     Then the result has isError true
     And no file is moved
@@ -151,6 +182,14 @@ Feature: MCP — identify and rename remap
     When the tool is called
     Then the result is not an error
     And the result contains mode "rename" and status "applied"
+
+  Scenario: rename_remap applies a noop entry
+    Given a noop entry exists for this file
+    And a call to rename_remap with the same path and destination
+    When the tool is called
+    Then the result is not an error
+    And the result contains status "noop"
+    And no file is moved
 ```
 
 ---
@@ -160,6 +199,7 @@ Feature: MCP — identify and rename remap
 - Mock the UC-06 Identify/Rename logic.
 - Test that a `conflict` result is `isError: false` (not a hard error — it's a normal, expected outcome the agent must handle conversationally) and includes `instructions`.
 - Test that `force` is honoured only when it matches the existing conflicted destination (same rule as UC6-TASK-003/006).
+- Test that `rename_remap`'s tool input schema has no `force` field at all.
 
 ## Notes for Tony Stark
 
@@ -172,7 +212,7 @@ Feature: MCP — identify and rename remap
 ## Subtasks
 
 - [ ] Register MCP server system prompt for remapping at startup
-- [ ] Implement `RemapMcpTools` in `Scoutarr.Mcp` with `identify_remap` and `rename_remap`
+- [ ] Implement `RemapMcpTools` in `Scoutarr.Mcp` with `identify_remap` and `rename_remap` (note: `rename_remap` schema has no `force` field)
 - [ ] Black Widow writes tests in red (all scenarios above)
 - [ ] Tony Stark implements tools and system prompt registration
 - [ ] Hawkeye reviews
